@@ -2,7 +2,7 @@
 
 A comprehensive Streamlit application to analyze GitHub Pull Requests for any repository with advanced metrics and visualizations.
 
-<img width="1850" height="3766" alt="image" src="https://github.com/user-attachments/assets/b3406ec1-0fc3-4d91-96da-2203221ed566" />
+<img width="1850" height="5362" alt="image" src="https://github.com/user-attachments/assets/705e5156-aab6-40b3-9ec6-a0653cb6654c" />
 
 
 ## Features
