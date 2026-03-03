@@ -561,7 +561,7 @@ def main():
             margin-top: 1.5rem !important;
         }
 
-        /* Metric cards styling */
+        /* Metric cards styling - Fixed height */
         [data-testid="stMetric"] {
             background: linear-gradient(135deg, #F8FAFC 0%, #FFFFFF 100%);
             border: 1px solid #E2E8F0;
@@ -569,11 +569,48 @@ def main():
             padding: 1rem;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
             transition: all 0.2s ease;
+            height: 120px !important;
+            min-height: 120px !important;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
         }
 
         [data-testid="stMetric"]:hover {
             box-shadow: 0 4px 12px rgba(30, 64, 175, 0.15);
             border-color: #3B82F6;
+        }
+
+        /* Metric label */
+        [data-testid="stMetric"] > div:first-child {
+            font-size: 0.875rem;
+            color: #475569;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+        }
+
+        /* Metric value */
+        [data-testid="stMetric"] > div:last-child {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: #1E3A8A;
+        }
+
+        /* Delta styling */
+        [data-testid="stMetricDelta"] {
+            color: #059669 !important;
+            font-weight: 600;
+            font-size: 0.875rem;
+        }
+
+        /* Ensure columns have equal height */
+        [data-testid="column"] {
+            display: flex;
+            flex-direction: column;
+        }
+
+        [data-testid="column"] > div {
+            flex: 1;
         }
 
         [data-testid="stMetric"] > div:first-child {
