@@ -192,3 +192,85 @@ def test_analyze_prs_ai_disabled():
                 assert result['ai_prs'] == 0
                 assert result['human_prs'] == 1
                 assert result['ai_contribution_pct'] == 0.0
+
+
+def test_analyze_contributors_basic():
+    """Test basic contributor stats calculation."""
+    with patch('pr_analyzer.AI_DETECTION_ENABLED', True):
+        with patch('pr_analyzer.AI_BRANCH_PREFIXES', ['claude/']):
+            with patch('pr_analyzer.AI_AUTHOR_PATTERNS', ['devin-ai-integration']):
+                from pr_analyzer import analyze_contributors, is_ai_pr
+
+                # Create mock PRs from different users
+                pr1 = MagicMock()  # user1 - merged AI PR
+                pr1.created_at = datetime(2024, 3, 1)
+                pr1.merged_at = datetime(2024, 3, 2)
+                pr1.state = 'closed'
+                pr1.head.ref = 'claude/feature-1'
+                pr1.user.login = 'user1'
+                pr1.labels = []
+
+                pr2 = MagicMock()  # user1 - open PR
+                pr2.created_at = datetime(2024, 3, 5)
+                pr2.merged_at = None
+                pr2.state = 'open'
+                pr2.head.ref = 'feature-2'
+                pr2.user.login = 'user1'
+                pr2.labels = []
+
+                pr3 = MagicMock()  # user2 - merged human PR
+                pr3.created_at = datetime(2024, 3, 3)
+                pr3.merged_at = datetime(2024, 3, 4)
+                pr3.state = 'closed'
+                pr3.head.ref = 'bugfix-3'
+                pr3.user.login = 'user2'
+                pr3.labels = []
+
+                result = analyze_contributors([pr1, pr2, pr3])
+
+                # Check user1 stats
+                assert 'user1' in result
+                assert result['user1']['total_prs'] == 2
+                assert result['user1']['merged'] == 1
+                assert result['user1']['open'] == 1
+                assert result['user1']['closed'] == 0
+                assert result['user1']['ai_prs'] == 1
+
+                # Check user2 stats
+                assert 'user2' in result
+                assert result['user2']['total_prs'] == 1
+                assert result['user2']['merged'] == 1
+                assert result['user2']['ai_prs'] == 0
+
+
+def test_analyze_contributors_empty():
+    """Test with empty PR list."""
+    from pr_analyzer import analyze_contributors
+    result = analyze_contributors([])
+    assert result == {}
+
+
+def test_analyze_contributors_merge_rate():
+    """Test merge rate calculation."""
+    with patch('pr_analyzer.AI_DETECTION_ENABLED', False):
+        from pr_analyzer import analyze_contributors
+
+        pr1 = MagicMock()
+        pr1.created_at = datetime(2024, 3, 1)
+        pr1.merged_at = datetime(2024, 3, 2)
+        pr1.state = 'closed'
+        pr1.head.ref = 'feature-1'
+        pr1.user.login = 'user1'
+        pr1.labels = []
+
+        pr2 = MagicMock()
+        pr2.created_at = datetime(2024, 3, 3)
+        pr2.merged_at = None
+        pr2.state = 'closed'
+        pr2.head.ref = 'feature-2'
+        pr2.user.login = 'user1'
+        pr2.labels = []
+
+        result = analyze_contributors([pr1, pr2])
+
+        assert result['user1']['merge_rate'] == 50.0
