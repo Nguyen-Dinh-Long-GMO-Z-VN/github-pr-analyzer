@@ -2,7 +2,7 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
-from pr_fetcher import fetch_prs_for_month, parse_repo_url
+from pr_fetcher import fetch_prs_for_month, fetch_prs_for_date_range, parse_repo_url
 from pr_analyzer import analyze_prs, analyze_comparison, is_ai_pr
 from config import GITHUB_TOKEN
 
@@ -135,6 +135,63 @@ def display_label_analysis(top_labels):
     st.bar_chart(labels_df.set_index('Label'))
 
 
+def display_analysis_results(metrics, period_name):
+    """Display analysis results for a given time period."""
+    # Display metrics
+    st.subheader("📊 Summary Metrics")
+    display_metrics_cards(metrics)
+
+    st.divider()
+
+    # Charts row 1
+    col_chart1, col_chart2 = st.columns(2)
+
+    with col_chart1:
+        st.markdown("**PR Status Distribution**")
+        status_data = pd.DataFrame({
+            'Status': ['Merged', 'Open', 'Closed'],
+            'Count': [metrics['merged'], metrics['open'], metrics['closed']]
+        })
+        st.bar_chart(status_data.set_index('Status'))
+
+    with col_chart2:
+        st.markdown("**AI vs Human PRs**")
+        ai_data = pd.DataFrame({
+            'Type': ['AI PRs', 'Human PRs'],
+            'Count': [metrics['ai_prs'], metrics['human_prs']]
+        })
+        st.bar_chart(ai_data.set_index('Type'))
+
+    # Timeline
+    st.subheader("📈 PR Timeline")
+    display_timeline_chart(metrics['prs_by_date'])
+
+    # All contributors
+    st.subheader("👥 All Contributors")
+
+    tab_overall, tab_ai, tab_human = st.tabs(["📊 Overall", "🤖 AI", "👤 Human"])
+
+    with tab_overall:
+        display_all_contributors(metrics['top_contributors'], "All Contributors", "overall")
+
+    with tab_ai:
+        display_all_contributors(metrics['top_ai_contributors'], "AI Contributors", "ai")
+
+    with tab_human:
+        display_all_contributors(metrics['top_human_contributors'], "Human Contributors", "human")
+
+    # Label analysis
+    if metrics['top_labels']:
+        st.subheader("🏷️ Label Analysis")
+        display_label_analysis(metrics['top_labels'])
+
+    st.divider()
+
+    # PR Details with tabs
+    st.subheader("📝 Pull Request Details")
+    display_pr_tabs(metrics)
+
+
 def display_pr_tabs(metrics):
     """Display PRs in tabs (All / AI / Human)."""
     tab1, tab2, tab3 = st.tabs(["📋 All PRs", "🤖 AI PRs", "👤 Human PRs"])
@@ -243,7 +300,7 @@ def main():
         # Analysis mode
         analysis_mode = st.radio(
             "Analysis Mode",
-            ["📊 Single Month", "📈 Compare Months"],
+            ["📊 Single Month", "📅 Date Range", "📈 Compare Months"],
             index=0
         )
 
@@ -269,6 +326,16 @@ def main():
 
         st.subheader("📅 Time Period")
 
+        # Initialize variables
+        selected_month = None
+        selected_year = None
+        start_date = None
+        end_date = None
+        compare_month = None
+        compare_year = None
+        compare_start_date = None
+        compare_end_date = None
+
         if analysis_mode == "📊 Single Month":
             selected_month = st.selectbox(
                 "Month",
@@ -282,9 +349,25 @@ def main():
                 index=len(years) - 1,
                 key="year1"
             )
-            compare_month = None
-            compare_year = None
-        else:
+
+        elif analysis_mode == "📅 Date Range":
+            col_start, col_end = st.columns(2)
+            with col_start:
+                st.markdown("**Start Date**")
+                start_date = st.date_input(
+                    "From",
+                    value=datetime.now().replace(day=1),
+                    max_value=datetime.now()
+                )
+            with col_end:
+                st.markdown("**End Date**")
+                end_date = st.date_input(
+                    "To",
+                    value=datetime.now(),
+                    max_value=datetime.now()
+                )
+
+        elif analysis_mode == "📈 Compare Months":
             col_m1, col_m2 = st.columns(2)
             with col_m1:
                 st.markdown("**Month 1**")
@@ -350,72 +433,43 @@ def main():
                     if analysis_mode == "📊 Single Month":
                         # Single month analysis
                         prs = fetch_prs_for_month(repo_url, selected_year, selected_month)
-                        month_name = f"{month_names[selected_month - 1]} {selected_year}"
+                        period_name = f"{month_names[selected_month - 1]} {selected_year}"
 
                         if not prs:
-                            st.warning(f"No PRs found for {month_name}")
+                            st.warning(f"No PRs found for {period_name}")
                             continue
 
-                        st.info(f"Analyzing **{len(prs)} PRs** for {month_name}")
+                        st.info(f"Analyzing **{len(prs)} PRs** for {period_name}")
 
-                        # Analyze
+                        # Analyze and display
                         metrics = analyze_prs(prs)
+                        display_analysis_results(metrics, period_name)
 
-                        # Display metrics
-                        st.subheader("📊 Summary Metrics")
-                        display_metrics_cards(metrics)
+                    elif analysis_mode == "📅 Date Range":
+                        # Date range analysis
+                        # Validate date range
+                        if start_date > end_date:
+                            st.error("Start date must be before or equal to end date")
+                            continue
 
-                        st.divider()
+                        # Convert date to datetime for comparison
+                        start_datetime = datetime.combine(start_date, datetime.min.time())
+                        end_datetime = datetime.combine(end_date, datetime.max.time())
 
-                        # Charts row 1
-                        col_chart1, col_chart2 = st.columns(2)
+                        prs = fetch_prs_for_date_range(repo_url, start_datetime, end_datetime)
+                        period_name = f"{start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}"
 
-                        with col_chart1:
-                            st.markdown("**PR Status Distribution**")
-                            status_data = pd.DataFrame({
-                                'Status': ['Merged', 'Open', 'Closed'],
-                                'Count': [metrics['merged'], metrics['open'], metrics['closed']]
-                            })
-                            st.bar_chart(status_data.set_index('Status'))
+                        if not prs:
+                            st.warning(f"No PRs found for {period_name}")
+                            continue
 
-                        with col_chart2:
-                            st.markdown("**AI vs Human PRs**")
-                            ai_data = pd.DataFrame({
-                                'Type': ['AI PRs', 'Human PRs'],
-                                'Count': [metrics['ai_prs'], metrics['human_prs']]
-                            })
-                            st.bar_chart(ai_data.set_index('Type'))
+                        st.info(f"Analyzing **{len(prs)} PRs** for {period_name}")
 
-                        # Timeline
-                        st.subheader("📈 PR Timeline")
-                        display_timeline_chart(metrics['prs_by_date'])
+                        # Analyze and display
+                        metrics = analyze_prs(prs)
+                        display_analysis_results(metrics, period_name)
 
-                        # All contributors
-                        st.subheader("👥 All Contributors")
-
-                        tab_overall, tab_ai, tab_human = st.tabs(["📊 Overall", "🤖 AI", "👤 Human"])
-
-                        with tab_overall:
-                            display_all_contributors(metrics['top_contributors'], "All Contributors", "overall")
-
-                        with tab_ai:
-                            display_all_contributors(metrics['top_ai_contributors'], "AI Contributors", "ai")
-
-                        with tab_human:
-                            display_all_contributors(metrics['top_human_contributors'], "Human Contributors", "human")
-
-                        # Label analysis
-                        if metrics['top_labels']:
-                            st.subheader("🏷️ Label Analysis")
-                            display_label_analysis(metrics['top_labels'])
-
-                        st.divider()
-
-                        # PR Details with tabs
-                        st.subheader("📝 Pull Request Details")
-                        display_pr_tabs(metrics)
-
-                    else:
+                    elif analysis_mode == "📈 Compare Months":
                         # Comparison mode
                         month1_name = f"{month_names[selected_month - 1]} {selected_year}"
                         month2_name = f"{month_names[compare_month - 1]} {compare_year}"
