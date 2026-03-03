@@ -2,6 +2,9 @@
 
 A comprehensive Streamlit application to analyze GitHub Pull Requests for any repository with advanced metrics and visualizations.
 
+<img width="1238" height="433" alt="Screenshot from 2026-03-03 12-09-50" src="https://github.com/user-attachments/assets/7ec8adff-a5f3-4dd3-8f7e-bb29e28b9c69" />
+
+
 ## ✨ Features
 
 ### 📊 Core Analytics
