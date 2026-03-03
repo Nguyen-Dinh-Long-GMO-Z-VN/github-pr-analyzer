@@ -199,7 +199,7 @@ def test_analyze_contributors_basic():
     with patch('pr_analyzer.AI_DETECTION_ENABLED', True):
         with patch('pr_analyzer.AI_BRANCH_PREFIXES', ['claude/']):
             with patch('pr_analyzer.AI_AUTHOR_PATTERNS', ['devin-ai-integration']):
-                from pr_analyzer import analyze_contributors, is_ai_pr
+                from pr_analyzer import analyze_contributors
 
                 # Create mock PRs from different users
                 pr1 = MagicMock()  # user1 - merged AI PR
@@ -235,12 +235,18 @@ def test_analyze_contributors_basic():
                 assert result['user1']['open'] == 1
                 assert result['user1']['closed'] == 0
                 assert result['user1']['ai_prs'] == 1
+                assert result['user1']['avg_merge_time_hours'] == 24.0
+                assert result['user1']['prs_per_week'] == 0.0
+                assert result['user1']['comments_per_pr'] is None
 
                 # Check user2 stats
                 assert 'user2' in result
                 assert result['user2']['total_prs'] == 1
                 assert result['user2']['merged'] == 1
                 assert result['user2']['ai_prs'] == 0
+                assert result['user2']['avg_merge_time_hours'] == 24.0
+                assert result['user2']['prs_per_week'] == 0.0
+                assert result['user2']['comments_per_pr'] is None
 
 
 def test_analyze_contributors_empty():
@@ -253,24 +259,29 @@ def test_analyze_contributors_empty():
 def test_analyze_contributors_merge_rate():
     """Test merge rate calculation."""
     with patch('pr_analyzer.AI_DETECTION_ENABLED', False):
-        from pr_analyzer import analyze_contributors
+        with patch('pr_analyzer.AI_BRANCH_PREFIXES', ['claude/']):
+            with patch('pr_analyzer.AI_AUTHOR_PATTERNS', ['devin-ai-integration']):
+                from pr_analyzer import analyze_contributors
 
-        pr1 = MagicMock()
-        pr1.created_at = datetime(2024, 3, 1)
-        pr1.merged_at = datetime(2024, 3, 2)
-        pr1.state = 'closed'
-        pr1.head.ref = 'feature-1'
-        pr1.user.login = 'user1'
-        pr1.labels = []
+                pr1 = MagicMock()
+                pr1.created_at = datetime(2024, 3, 1)
+                pr1.merged_at = datetime(2024, 3, 2)
+                pr1.state = 'closed'
+                pr1.head.ref = 'feature-1'
+                pr1.user.login = 'user1'
+                pr1.labels = []
 
-        pr2 = MagicMock()
-        pr2.created_at = datetime(2024, 3, 3)
-        pr2.merged_at = None
-        pr2.state = 'closed'
-        pr2.head.ref = 'feature-2'
-        pr2.user.login = 'user1'
-        pr2.labels = []
+                pr2 = MagicMock()
+                pr2.created_at = datetime(2024, 3, 3)
+                pr2.merged_at = None
+                pr2.state = 'closed'
+                pr2.head.ref = 'feature-2'
+                pr2.user.login = 'user1'
+                pr2.labels = []
 
-        result = analyze_contributors([pr1, pr2])
+                result = analyze_contributors([pr1, pr2])
 
-        assert result['user1']['merge_rate'] == 50.0
+                assert result['user1']['merge_rate'] == 50.0
+                assert result['user1']['merged'] == 1
+                assert result['user1']['closed'] == 1
+                assert result['user1']['total_prs'] == 2
