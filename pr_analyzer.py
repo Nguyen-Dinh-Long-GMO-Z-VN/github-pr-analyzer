@@ -221,6 +221,13 @@ def analyze_contributors(prs: List[PullRequest], start_date: datetime = None, en
     if start_date and end_date:
         delta = end_date - start_date
         weeks = max(1.0, delta.days / 7)
+    elif prs:
+        # Calculate from actual PR dates (first to last PR)
+        pr_dates = [pr.created_at for pr in prs]
+        earliest = min(pr_dates)
+        latest = max(pr_dates)
+        delta = latest - earliest
+        weeks = max(1.0, delta.days / 7)
 
     result = {}
     for username, user_stats in stats.items():
