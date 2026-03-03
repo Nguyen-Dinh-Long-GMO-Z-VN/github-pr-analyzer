@@ -45,7 +45,7 @@ def get_pr_labels(pr: PullRequest) -> List[str]:
     return [label.name for label in pr.labels]
 
 
-def analyze_prs(prs: List[PullRequest]) -> Dict[str, Any]:
+def analyze_prs(prs: List[PullRequest], start_date: datetime = None, end_date: datetime = None) -> Dict[str, Any]:
     """Analyze PRs and return comprehensive metrics."""
     total = len(prs)
     merged = 0
@@ -133,6 +133,9 @@ def analyze_prs(prs: List[PullRequest]) -> Dict[str, Any]:
     ai_pr_list = [pr for pr in prs if is_ai_pr(pr)]
     human_pr_list = [pr for pr in prs if not is_ai_pr(pr)]
 
+    # Add contributor stats
+    contributors_stats = analyze_contributors(prs, start_date, end_date)
+
     return {
         'total': total,
         'merged': merged,
@@ -156,7 +159,8 @@ def analyze_prs(prs: List[PullRequest]) -> Dict[str, Any]:
         'prs_by_date': prs_by_date,
         'ai_pr_list': ai_pr_list,
         'human_pr_list': human_pr_list,
-        'all_prs': prs
+        'all_prs': prs,
+        'contributors': contributors_stats,
     }
 
 

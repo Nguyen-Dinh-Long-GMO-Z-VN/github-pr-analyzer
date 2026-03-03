@@ -157,7 +157,7 @@ def get_contributors_data_for_df(contributors_stats):
     return data
 
 
-def display_contributor_statistics(prs, start_date=None, end_date=None):
+def display_contributor_statistics(prs, contributors_stats=None, start_date=None, end_date=None):
     """Display contributor statistics table with lazy-loaded comments."""
     if not prs:
         st.info("No PRs found for contributor analysis")
@@ -165,8 +165,9 @@ def display_contributor_statistics(prs, start_date=None, end_date=None):
 
     st.subheader("Contributor Statistics")
 
-    # Calculate contributor stats
-    contributors_stats = analyze_contributors(prs, start_date, end_date)
+    # Calculate contributor stats if not provided
+    if contributors_stats is None:
+        contributors_stats = analyze_contributors(prs, start_date, end_date)
 
     if not contributors_stats:
         st.info("No contributor data available")
@@ -268,7 +269,7 @@ def display_analysis_results(metrics, period_name):
     display_pr_tabs(metrics)
 
     # Contributor Statistics
-    display_contributor_statistics(metrics['all_prs'])
+    display_contributor_statistics(metrics['all_prs'], metrics.get('contributors'))
 
 
 def display_pr_tabs(metrics):
