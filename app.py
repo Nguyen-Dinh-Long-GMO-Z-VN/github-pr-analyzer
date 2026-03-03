@@ -2,8 +2,8 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
-from pr_fetcher import fetch_prs_for_month, fetch_prs_for_date_range, parse_repo_url
-from pr_analyzer import analyze_prs, analyze_comparison, is_ai_pr
+from pr_fetcher import fetch_prs_for_month, fetch_prs_for_date_range, parse_repo_url, fetch_comments_for_prs
+from pr_analyzer import analyze_prs, analyze_comparison, is_ai_pr, analyze_contributors
 from config import GITHUB_TOKEN
 
 
@@ -135,6 +135,82 @@ def display_label_analysis(top_labels):
     st.bar_chart(labels_df.set_index('Label'))
 
 
+def get_contributors_data_for_df(contributors_stats):
+    """Convert contributor stats to list of dictionaries for DataFrame."""
+    data = []
+    for username, stats in contributors_stats.items():
+        avg_time = stats['avg_merge_time_hours']
+        comments = stats['comments_per_pr']
+
+        data.append({
+            'Username': username,
+            'Total PRs': stats['total_prs'],
+            'Merged': stats['merged'],
+            'Open': stats['open'],
+            'Closed': stats['closed'],
+            'Merge Rate %': f"{stats['merge_rate']:.1f}",
+            'Avg Merge Time': f"{avg_time:.1f}h" if avg_time > 0 else "N/A",
+            'AI PRs': stats['ai_prs'],
+            'PRs/Week': f"{stats['prs_per_week']:.2f}",
+            'Comments/PR': f"{comments:.1f}" if comments is not None else "-",
+        })
+    return data
+
+
+def display_contributor_statistics(prs, start_date=None, end_date=None):
+    """Display contributor statistics table with lazy-loaded comments."""
+    if not prs:
+        st.info("No PRs found for contributor analysis")
+        return
+
+    st.subheader("Contributor Statistics")
+
+    # Calculate contributor stats
+    contributors_stats = analyze_contributors(prs, start_date, end_date)
+
+    if not contributors_stats:
+        st.info("No contributor data available")
+        return
+
+    # Sort by Total PRs descending
+    contributors_stats = dict(sorted(
+        contributors_stats.items(),
+        key=lambda x: x[1]['total_prs'],
+        reverse=True
+    ))
+
+    # Lazy load comments button
+    comments_loaded = st.session_state.get('comments_loaded', False)
+
+    col1, col2 = st.columns([1, 4])
+    with col1:
+        if not comments_loaded:
+            if st.button("Load Comments", type="secondary"):
+                with st.spinner("Fetching comments..."):
+                    comments_map = fetch_comments_for_prs(prs)
+
+                    # Update stats with comments
+                    for username, stats in contributors_stats.items():
+                        user_prs = [p for p in prs if p.user.login == username]
+                        total_comments = sum(comments_map.get(p.number, 0) for p in user_prs)
+                        stats['comments_per_pr'] = total_comments / len(user_prs) if user_prs else 0
+
+                    st.session_state['comments_loaded'] = True
+                    st.rerun()
+        else:
+            st.caption("Comments loaded")
+
+    with col2:
+        st.caption("Click 'Load Comments' to fetch average comments per PR (may take time for large repos)")
+
+    # Create DataFrame
+    data = get_contributors_data_for_df(contributors_stats)
+    df = pd.DataFrame(data)
+
+    # Display table
+    st.dataframe(df, use_container_width=True, hide_index=True)
+
+
 def display_analysis_results(metrics, period_name):
     """Display analysis results for a given time period."""
     # Display metrics
@@ -190,6 +266,9 @@ def display_analysis_results(metrics, period_name):
     # PR Details with tabs
     st.subheader("📝 Pull Request Details")
     display_pr_tabs(metrics)
+
+    # Contributor Statistics
+    display_contributor_statistics(metrics['all_prs'])
 
 
 def display_pr_tabs(metrics):
