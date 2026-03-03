@@ -3,20 +3,31 @@ from typing import List, Dict, Any, Tuple
 from datetime import datetime
 from collections import Counter
 from github import PullRequest
+from config import (
+    AI_DETECTION_ENABLED,
+    AI_BRANCH_PREFIXES,
+    AI_AUTHOR_PATTERNS
+)
 
 
 def is_ai_pr(pr: PullRequest) -> bool:
-    """Check if PR is AI-generated based on branch prefix or author."""
+    """Check if PR is AI-generated based on configurable branch prefixes or author patterns."""
+    # If AI detection is disabled, always return False
+    if not AI_DETECTION_ENABLED:
+        return False
+
     branch = pr.head.ref.lower()
     author = pr.user.login.lower()
 
-    # Check branch prefix
-    if branch.startswith('claude/'):
-        return True
+    # Check branch prefixes
+    for prefix in AI_BRANCH_PREFIXES:
+        if branch.startswith(prefix):
+            return True
 
-    # Check author (substring match to catch variations like [bot])
-    if 'devin-ai-integration' in author:
-        return True
+    # Check author patterns (substring match)
+    for pattern in AI_AUTHOR_PATTERNS:
+        if pattern in author:
+            return True
 
     return False
 

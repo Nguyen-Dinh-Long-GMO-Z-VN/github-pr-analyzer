@@ -53,7 +53,24 @@ To create a token:
 1. Go to GitHub → Settings → Developer settings → Personal access tokens
 2. Generate new token with `repo` scope (for private repos) or `public_repo` (for public repos only)
 
-### 3. Run the App
+### 3. (Optional) Configure AI PR Detection
+
+Edit `.env` to customize AI detection rules:
+
+```bash
+# Enable/disable AI detection (default: true)
+AI_DETECTION_ENABLED=true
+
+# Branch prefixes that indicate AI PRs (comma-separated)
+AI_BRANCH_PREFIXES=claude/,ai/,gpt/,copilot/
+
+# Author patterns that indicate AI PRs (comma-separated)
+AI_AUTHOR_PATTERNS=devin-ai-integration,github-copilot,claude-bot
+```
+
+**For projects without AI PRs**, set `AI_DETECTION_ENABLED=false` to disable AI analysis.
+
+### 4. Run the App
 
 ```bash
 streamlit run app.py
@@ -93,9 +110,18 @@ The app will open at `http://localhost:8501`
 
 ### AI PR Detection
 
-AI PRs are identified by:
-- **Branch prefix**: Branch name starts with `claude/`
-- **Author**: PR author contains `devin-ai-integration` (catches `[bot]` suffixes)
+AI PRs are identified by configurable rules in `.env`:
+
+| Config | Description | Example |
+|--------|-------------|---------|
+| `AI_BRANCH_PREFIXES` | Branch name starts with any of these prefixes | `claude/`, `ai/`, `gpt/` |
+| `AI_AUTHOR_PATTERNS` | PR author contains any of these substrings | `devin-ai-integration`, `copilot` |
+
+**Default rules:**
+- Branch prefix: `claude/`
+- Author pattern: `devin-ai-integration`
+
+**To disable AI detection completely**, set `AI_DETECTION_ENABLED=false` in `.env`.
 
 ### Exporting Data
 
