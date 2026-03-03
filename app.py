@@ -382,6 +382,19 @@ def display_analysis_results(metrics, period_name, repo_names=None, aggregate_mo
         </div>
     """, unsafe_allow_html=True)
 
+    # Export PDF button (in a row with other actions if needed)
+    if st.session_state.get('last_pdf_buffer'):
+        col_actions, _ = st.columns([1, 5])
+        with col_actions:
+            st.download_button(
+                label="📄 Export PDF",
+                data=st.session_state.last_pdf_buffer,
+                file_name=st.session_state.get('last_pdf_filename', 'pr-analysis.pdf'),
+                mime="application/pdf",
+                type="primary"
+            )
+        st.markdown("<br>", unsafe_allow_html=True)
+
     # Display metrics
     display_metrics_cards(metrics)
 
@@ -752,24 +765,9 @@ def main():
         st.error("⚠️ GITHUB_TOKEN not found. Please set it in your .env file.")
         st.stop()
 
-    # Header with Export PDF button
-    header_col1, header_col2 = st.columns([6, 1])
-    with header_col1:
-        st.title("GitHub PR Analyzer")
-        st.markdown("Analyze Pull Requests for any GitHub repository by month")
-    with header_col2:
-        # Add vertical spacing to align button with title
-        st.markdown("<br>", unsafe_allow_html=True)
-        # Export PDF button (only show when analysis is done)
-        if st.session_state.get('last_pdf_buffer'):
-            st.download_button(
-                label="📄 Export",
-                data=st.session_state.last_pdf_buffer,
-                file_name=st.session_state.get('last_pdf_filename', 'pr-analysis.pdf'),
-                mime="application/pdf",
-                use_container_width=True,
-                type="primary"
-            )
+    # Header
+    st.title("GitHub PR Analyzer")
+    st.markdown("Analyze Pull Requests for any GitHub repository by month")
 
     # Sidebar
     with st.sidebar:
