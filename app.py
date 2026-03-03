@@ -369,6 +369,15 @@ def main():
         # Parse repos
         repo_urls = [url.strip() for url in repo_input.split('\n') if url.strip()]
 
+        # Aggregate option (only show if multiple repos)
+        aggregate_repos = False
+        if len(repo_urls) > 1:
+            aggregate_repos = st.checkbox(
+                "Aggregate all repos",
+                value=False,
+                help="Merge PRs from all repositories into a single analysis view"
+            )
+
         # Date selection
         current_year = datetime.now().year
         years = list(range(current_year - 5, current_year + 1))
@@ -478,99 +487,200 @@ def main():
                 st.write(f"- `{url}`: {error}")
             return
 
-        # Process each repo
-        for repo_url, owner, repo in valid_repos:
-            st.header(f"📁 {owner}/{repo}")
+        # Aggregate mode: collect PRs from all repos
+        if aggregate_repos and len(valid_repos) > 1:
+            st.header(f"📁 Aggregated Analysis: {len(valid_repos)} Repositories")
+            repo_names = [f"{owner}/{repo}" for _, owner, repo in valid_repos]
+            st.caption(f"Repositories: {', '.join(repo_names)}")
 
             try:
-                with st.spinner(f"Fetching PR data for {owner}/{repo}..."):
-                    if analysis_mode == "📊 Single Month":
-                        # Single month analysis
-                        prs = fetch_prs_for_month(repo_url, selected_year, selected_month)
-                        period_name = f"{month_names[selected_month - 1]} {selected_year}"
+                all_prs = []
 
-                        if not prs:
-                            st.warning(f"No PRs found for {period_name}")
-                            continue
+                with st.spinner(f"Fetching PR data from {len(valid_repos)} repositories..."):
+                    for repo_url, owner, repo in valid_repos:
+                        if analysis_mode == "📊 Single Month":
+                            prs = fetch_prs_for_month(repo_url, selected_year, selected_month)
+                            all_prs.extend(prs)
 
-                        st.info(f"Analyzing **{len(prs)} PRs** for {period_name}")
+                        elif analysis_mode == "📅 Date Range":
+                            if start_date > end_date:
+                                st.error("Start date must be before or equal to end date")
+                                break
+                            start_datetime = datetime.combine(start_date, datetime.min.time())
+                            end_datetime = datetime.combine(end_date, datetime.max.time())
+                            prs = fetch_prs_for_date_range(repo_url, start_datetime, end_datetime)
+                            all_prs.extend(prs)
 
-                        # Analyze and display
-                        metrics = analyze_prs(prs)
-                        display_analysis_results(metrics, period_name)
+                        elif analysis_mode == "📈 Compare Months":
+                            # For compare mode in aggregate, we need to fetch both months from all repos
+                            prs_month1 = fetch_prs_for_month(repo_url, selected_year, selected_month)
+                            prs_month2 = fetch_prs_for_month(repo_url, compare_year, compare_month)
+                            # Store in all_prs with metadata for later separation
+                            all_prs.extend([(pr, 'month1') for pr in prs_month1])
+                            all_prs.extend([(pr, 'month2') for pr in prs_month2])
 
-                    elif analysis_mode == "📅 Date Range":
-                        # Date range analysis
-                        # Validate date range
-                        if start_date > end_date:
-                            st.error("Start date must be before or equal to end date")
-                            continue
+                # Process aggregated results
+                if analysis_mode == "📊 Single Month":
+                    period_name = f"{month_names[selected_month - 1]} {selected_year}"
 
-                        # Convert date to datetime for comparison
-                        start_datetime = datetime.combine(start_date, datetime.min.time())
-                        end_datetime = datetime.combine(end_date, datetime.max.time())
+                    if not all_prs:
+                        st.warning(f"No PRs found for {period_name} across all repositories")
+                        return
 
-                        prs = fetch_prs_for_date_range(repo_url, start_datetime, end_datetime)
-                        period_name = f"{start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}"
+                    st.info(f"Analyzing **{len(all_prs)} PRs** from {len(valid_repos)} repositories for {period_name}")
 
-                        if not prs:
-                            st.warning(f"No PRs found for {period_name}")
-                            continue
+                    # Analyze and display
+                    metrics = analyze_prs(all_prs)
+                    display_analysis_results(metrics, period_name)
 
-                        st.info(f"Analyzing **{len(prs)} PRs** for {period_name}")
+                elif analysis_mode == "📅 Date Range":
+                    period_name = f"{start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}"
 
-                        # Analyze and display
-                        metrics = analyze_prs(prs)
-                        display_analysis_results(metrics, period_name)
+                    if not all_prs:
+                        st.warning(f"No PRs found for {period_name} across all repositories")
+                        return
 
-                    elif analysis_mode == "📈 Compare Months":
-                        # Comparison mode
-                        month1_name = f"{month_names[selected_month - 1]} {selected_year}"
-                        month2_name = f"{month_names[compare_month - 1]} {compare_year}"
+                    st.info(f"Analyzing **{len(all_prs)} PRs** from {len(valid_repos)} repositories for {period_name}")
 
-                        prs_month1 = fetch_prs_for_month(repo_url, selected_year, selected_month)
-                        prs_month2 = fetch_prs_for_month(repo_url, compare_year, compare_month)
+                    # Analyze and display
+                    metrics = analyze_prs(all_prs)
+                    display_analysis_results(metrics, period_name)
 
-                        if not prs_month1 and not prs_month2:
-                            st.warning(f"No PRs found for either {month1_name} or {month2_name}")
-                            continue
+                elif analysis_mode == "📈 Compare Months":
+                    month1_name = f"{month_names[selected_month - 1]} {selected_year}"
+                    month2_name = f"{month_names[compare_month - 1]} {compare_year}"
 
-                        # Compare
-                        comparison = analyze_comparison(
-                            prs_month1, prs_month2,
-                            month1_name, month2_name
-                        )
+                    # Separate PRs by month
+                    prs_month1 = [pr for pr, month in all_prs if month == 'month1']
+                    prs_month2 = [pr for pr, month in all_prs if month == 'month2']
 
-                        display_comparison(comparison)
+                    if not prs_month1 and not prs_month2:
+                        st.warning(f"No PRs found for either {month1_name} or {month2_name}")
+                        return
 
-                        # Show details for both months
-                        col_m1, col_m2 = st.columns(2)
+                    st.info(f"Analyzing **{len(prs_month1)} PRs** for {month1_name} and **{len(prs_month2)} PRs** for {month2_name}")
 
-                        with col_m1:
-                            st.subheader(f"📅 {month1_name}")
-                            if prs_month1:
-                                metrics1 = comparison['month1']['metrics']
-                                st.metric("Total", metrics1['total'])
-                                st.metric("AI %", f"{metrics1['ai_contribution_pct']:.1f}%")
-                                st.metric("Velocity", f"{metrics1['pr_velocity']:.1f}/day")
-                            else:
-                                st.info("No data")
+                    # Compare
+                    comparison = analyze_comparison(
+                        prs_month1, prs_month2,
+                        month1_name, month2_name
+                    )
 
-                        with col_m2:
-                            st.subheader(f"📅 {month2_name}")
-                            if prs_month2:
-                                metrics2 = comparison['month2']['metrics']
-                                st.metric("Total", metrics2['total'])
-                                st.metric("AI %", f"{metrics2['ai_contribution_pct']:.1f}%")
-                                st.metric("Velocity", f"{metrics2['pr_velocity']:.1f}/day")
-                            else:
-                                st.info("No data")
+                    display_comparison(comparison)
 
-                st.divider()
+                    # Show details for both months
+                    col_m1, col_m2 = st.columns(2)
+
+                    with col_m1:
+                        st.subheader(f"📅 {month1_name}")
+                        if prs_month1:
+                            metrics1 = comparison['month1']['metrics']
+                            st.metric("Total", metrics1['total'])
+                            st.metric("AI %", f"{metrics1['ai_contribution_pct']:.1f}%")
+                            st.metric("Velocity", f"{metrics1['pr_velocity']:.1f}/day")
+                        else:
+                            st.info("No data")
+
+                    with col_m2:
+                        st.subheader(f"📅 {month2_name}")
+                        if prs_month2:
+                            metrics2 = comparison['month2']['metrics']
+                            st.metric("Total", metrics2['total'])
+                            st.metric("AI %", f"{metrics2['ai_contribution_pct']:.1f}%")
+                            st.metric("Velocity", f"{metrics2['pr_velocity']:.1f}/day")
+                        else:
+                            st.info("No data")
 
             except Exception as e:
-                st.error(f"Error analyzing {owner}/{repo}: {e}")
-                st.info("Make sure the repository exists and your GITHUB_TOKEN has access to it.")
+                st.error(f"Error analyzing repositories: {e}")
+                st.info("Make sure the repositories exist and your GITHUB_TOKEN has access to them.")
+
+        else:
+            # Individual repo mode: process each repo separately
+            for repo_url, owner, repo in valid_repos:
+                st.header(f"📁 {owner}/{repo}")
+
+                try:
+                    with st.spinner(f"Fetching PR data for {owner}/{repo}..."):
+                        if analysis_mode == "📊 Single Month":
+                            # Single month analysis
+                            prs = fetch_prs_for_month(repo_url, selected_year, selected_month)
+                            period_name = f"{month_names[selected_month - 1]} {selected_year}"
+
+                            if not prs:
+                                st.warning(f"No PRs found for {period_name}")
+                            else:
+                                st.info(f"Analyzing **{len(prs)} PRs** for {period_name}")
+                                # Analyze and display
+                                metrics = analyze_prs(prs)
+                                display_analysis_results(metrics, period_name)
+
+                        elif analysis_mode == "📅 Date Range":
+                            # Date range analysis
+                            if start_date > end_date:
+                                st.error("Start date must be before or equal to end date")
+                            else:
+                                start_datetime = datetime.combine(start_date, datetime.min.time())
+                                end_datetime = datetime.combine(end_date, datetime.max.time())
+
+                                prs = fetch_prs_for_date_range(repo_url, start_datetime, end_datetime)
+                                period_name = f"{start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}"
+
+                                if not prs:
+                                    st.warning(f"No PRs found for {period_name}")
+                                else:
+                                    st.info(f"Analyzing **{len(prs)} PRs** for {period_name}")
+                                    # Analyze and display
+                                    metrics = analyze_prs(prs)
+                                    display_analysis_results(metrics, period_name)
+
+                        elif analysis_mode == "📈 Compare Months":
+                            # Comparison mode
+                            month1_name = f"{month_names[selected_month - 1]} {selected_year}"
+                            month2_name = f"{month_names[compare_month - 1]} {compare_year}"
+
+                            prs_month1 = fetch_prs_for_month(repo_url, selected_year, selected_month)
+                            prs_month2 = fetch_prs_for_month(repo_url, compare_year, compare_month)
+
+                            if not prs_month1 and not prs_month2:
+                                st.warning(f"No PRs found for either {month1_name} or {month2_name}")
+                            else:
+                                # Compare
+                                comparison = analyze_comparison(
+                                    prs_month1, prs_month2,
+                                    month1_name, month2_name
+                                )
+
+                                display_comparison(comparison)
+
+                                # Show details for both months
+                                col_m1, col_m2 = st.columns(2)
+
+                                with col_m1:
+                                    st.subheader(f"📅 {month1_name}")
+                                    if prs_month1:
+                                        metrics1 = comparison['month1']['metrics']
+                                        st.metric("Total", metrics1['total'])
+                                        st.metric("AI %", f"{metrics1['ai_contribution_pct']:.1f}%")
+                                        st.metric("Velocity", f"{metrics1['pr_velocity']:.1f}/day")
+                                    else:
+                                        st.info("No data")
+
+                                with col_m2:
+                                    st.subheader(f"📅 {month2_name}")
+                                    if prs_month2:
+                                        metrics2 = comparison['month2']['metrics']
+                                        st.metric("Total", metrics2['total'])
+                                        st.metric("AI %", f"{metrics2['ai_contribution_pct']:.1f}%")
+                                        st.metric("Velocity", f"{metrics2['pr_velocity']:.1f}/day")
+                                    else:
+                                        st.info("No data")
+
+                    st.divider()
+
+                except Exception as e:
+                    st.error(f"Error analyzing {owner}/{repo}: {e}")
+                    st.info("Make sure the repository exists and your GITHUB_TOKEN has access to it.")
 
 
 if __name__ == "__main__":
