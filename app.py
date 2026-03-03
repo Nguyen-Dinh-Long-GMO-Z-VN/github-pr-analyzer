@@ -656,21 +656,39 @@ def main():
             padding-top: 2rem;
         }
 
-        /* Button styling */
-        .stButton > button {
-            background: linear-gradient(135deg, #1E40AF 0%, #3B82F6 100%);
-            color: white;
-            border: none;
+        /* Button styling - Primary (Blue) */
+        .stButton > button[kind="primary"],
+        button[kind="primary"] {
+            background: linear-gradient(135deg, #1E40AF 0%, #3B82F6 100%) !important;
+            color: white !important;
+            border: none !important;
+            border-radius: 8px !important;
+            padding: 0.75rem 1.5rem !important;
+            font-weight: 600 !important;
+            transition: all 0.2s ease !important;
+        }
+
+        .stButton > button[kind="primary"]:hover,
+        button[kind="primary"]:hover {
+            background: linear-gradient(135deg, #1E3A8A 0%, #2563EB 100%) !important;
+            box-shadow: 0 4px 12px rgba(30, 64, 175, 0.3) !important;
+            transform: translateY(-1px) !important;
+        }
+
+        /* Secondary button styling */
+        .stButton > button[kind="secondary"] {
+            background: #F1F5F9;
+            color: #1E40AF;
+            border: 1px solid #E2E8F0;
             border-radius: 8px;
             padding: 0.75rem 1.5rem;
             font-weight: 600;
             transition: all 0.2s ease;
         }
 
-        .stButton > button:hover {
-            background: linear-gradient(135deg, #1E3A8A 0%, #2563EB 100%);
-            box-shadow: 0 4px 12px rgba(30, 64, 175, 0.3);
-            transform: translateY(-1px);
+        .stButton > button[kind="secondary"]:hover {
+            background: #E2E8F0;
+            border-color: #CBD5E1;
         }
 
         /* Checkbox styling */
