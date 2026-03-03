@@ -5,9 +5,9 @@ A comprehensive Streamlit application to analyze GitHub Pull Requests for any re
 <img width="1238" height="433" alt="Screenshot from 2026-03-03 12-09-50" src="https://github.com/user-attachments/assets/7ec8adff-a5f3-4dd3-8f7e-bb29e28b9c69" />
 
 
-## ✨ Features
+## Features
 
-### 📊 Core Analytics
+### Core Analytics
 - **PR Counts**: Total, Merged, Open, Closed PRs
 - **AI Detection**: Automatically identifies AI-generated PRs (branch prefix `claude/` or author containing `devin-ai-integration`)
 - **Merge Time Analysis**: Average merge time overall, for AI PRs, and Human PRs
@@ -15,25 +15,25 @@ A comprehensive Streamlit application to analyze GitHub Pull Requests for any re
 - **PR Velocity**: PRs created per day
 - **AI Contribution %**: Percentage of PRs created by AI
 
-### 📈 Visualizations
+### Visualizations
 - **PR Timeline**: Line chart showing PR activity over time
 - **Status Distribution**: Bar chart of Merged/Open/Closed PRs
 - **AI vs Human**: Comparison chart
 - **Top Contributors**: Leaderboards for overall, AI, and Human contributors
 - **Label Analysis**: Breakdown by PR labels (bug, feature, etc.)
 
-### 🎛️ Interactive Features
+### Interactive Features
 - **Filter Tabs**: View All PRs, AI PRs only, or Human PRs only
 - **Export CSV**: Download PR data for any category
 - **Dark Mode**: Toggle between light and dark themes
 - **Auto Refresh**: Automatically refresh data every 5 minutes
 
-### 📅 Analysis Modes
+### Analysis Modes
 - **Single Month**: Analyze one month in detail
 - **Compare Months**: Compare metrics between two different months
 - **Multiple Repos**: Analyze multiple repositories at once
 
-## 🚀 Quick Start
+## Quick Start
 
 ### 1. Install Dependencies
 
@@ -78,21 +78,21 @@ streamlit run app.py
 
 The app will open at `http://localhost:8501`
 
-## 📖 Usage Guide
+## Usage Guide
 
 ### Single Month Analysis
 
-1. Select "📊 Single Month" mode
+1. Select "Single Month" mode
 2. Enter repository URL(s) - one per line for multiple repos
 3. Select Month and Year
-4. Click "🔍 Analyze"
+4. Click "Analyze"
 
 ### Compare Two Months
 
-1. Select "📈 Compare Months" mode
+1. Select "Compare Months" mode
 2. Enter repository URL(s)
 3. Select Month 1 and Month 2 (can be different months or years)
-4. Click "🔍 Analyze"
+4. Click "Analyze"
 
 ### Understanding the Metrics
 
@@ -130,7 +130,7 @@ Each tab (All PRs, AI PRs, Human PRs) has a download button to export data as CS
 - Reporting
 - Archival
 
-## 🏗️ Architecture
+## Architecture
 
 ```
 app.py              # Streamlit UI with all visualizations
@@ -140,7 +140,7 @@ app.py              # Streamlit UI with all visualizations
 └── config.py       # Environment configuration
 ```
 
-## 🧪 Testing
+## Testing
 
 Run the test suite:
 
@@ -148,7 +148,7 @@ Run the test suite:
 pytest test_*.py -v
 ```
 
-## 📋 Requirements
+## Requirements
 
 - Python 3.9+
 - GitHub Personal Access Token
@@ -158,7 +158,7 @@ pytest test_*.py -v
   - python-dotenv >= 1.0.0
   - pandas >= 2.0.0
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
 | Issue | Solution |
 |-------|----------|
@@ -167,10 +167,10 @@ pytest test_*.py -v
 | "Rate limit exceeded" | Wait an hour or use a different token |
 | No PRs found | Check if the month/year has any PR activity |
 
-## 🤝 Contributing
+## Contributing
 
 Feel free to submit issues or PRs to enhance the tool!
 
-## 📝 License
+## License
 
 MIT License
