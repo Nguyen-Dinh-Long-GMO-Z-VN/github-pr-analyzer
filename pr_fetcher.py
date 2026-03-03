@@ -1,7 +1,7 @@
 # pr_fetcher.py
 import re
 from datetime import datetime
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 from github import PullRequest
 from github_client import get_github_client
 
@@ -91,3 +91,24 @@ def fetch_prs_for_date_range(repo_identifier: str, start_date: datetime, end_dat
     ]
 
     return prs_in_range
+
+
+def get_pr_comments_count(pr: PullRequest) -> int:
+    """Get total comments count for a PR (review comments + issue comments)."""
+    try:
+        review_comments = pr.get_review_comments().totalCount
+        issue_comments = pr.get_comments().totalCount
+        return review_comments + issue_comments
+    except Exception:
+        return 0
+
+
+def fetch_comments_for_prs(prs: List[PullRequest]) -> Dict[int, int]:
+    """Fetch comments count for all PRs.
+
+    Returns dict mapping PR number to comments count.
+    """
+    comments_map = {}
+    for pr in prs:
+        comments_map[pr.number] = get_pr_comments_count(pr)
+    return comments_map

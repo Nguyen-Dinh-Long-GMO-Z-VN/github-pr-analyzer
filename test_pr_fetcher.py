@@ -119,3 +119,24 @@ def test_fetch_prs_for_date_range():
         assert len(result) == 2
         assert result[0].created_at.month == 3
         assert result[1].created_at.month == 3
+
+
+def test_get_pr_comments_count():
+    from pr_fetcher import get_pr_comments_count
+
+    pr = MagicMock()
+    pr.get_review_comments.return_value.totalCount = 3
+    pr.get_comments.return_value.totalCount = 2
+
+    count = get_pr_comments_count(pr)
+    assert count == 5
+
+
+def test_get_pr_comments_count_error():
+    from pr_fetcher import get_pr_comments_count
+
+    pr = MagicMock()
+    pr.get_review_comments.side_effect = Exception("API error")
+
+    count = get_pr_comments_count(pr)
+    assert count == 0
