@@ -743,7 +743,7 @@ def main():
         # Add vertical spacing to align button with title
         st.markdown("<br>", unsafe_allow_html=True)
         # Export PDF button (only show when analysis is done)
-        if st.session_state.get('analysis_results') and st.session_state.get('last_pdf_buffer'):
+        if st.session_state.get('last_pdf_buffer'):
             st.download_button(
                 label="📄 Export",
                 data=st.session_state.last_pdf_buffer,
