@@ -747,11 +747,30 @@ def main():
 
     # Sidebar
     with st.sidebar:
-        # Analysis mode
+        # Analysis mode with styled header
+        st.markdown("""
+            <h3 style="
+                color: #1E40AF;
+                font-weight: 700;
+                font-size: 1.1rem;
+                margin-bottom: 0.75rem;
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+            ">
+                📊 Analysis Mode
+            </h3>
+        """, unsafe_allow_html=True)
         analysis_mode = st.radio(
-            "Analysis Mode",
-            ["📊 Single Month", "📅 Date Range", "📈 Compare Months"],
-            index=0
+            label="Analysis Mode",
+            options=["Single Month", "Date Range", "Compare Months"],
+            index=0,
+            format_func=lambda x: {
+                "Single Month": "📅 Single Month",
+                "Date Range": "📆 Date Range",
+                "Compare Months": "📈 Compare Months"
+            }[x],
+            label_visibility="collapsed"
         )
 
         # Multiple repos support
@@ -795,7 +814,7 @@ def main():
         compare_start_date = None
         compare_end_date = None
 
-        if analysis_mode == "📊 Single Month":
+        if analysis_mode == "Single Month":
             selected_month = st.selectbox(
                 "Month",
                 options=months,
@@ -809,7 +828,7 @@ def main():
                 key="year1"
             )
 
-        elif analysis_mode == "📅 Date Range":
+        elif analysis_mode == "Date Range":
             col_start, col_end = st.columns(2)
             with col_start:
                 st.markdown("**Start Date**")
@@ -826,7 +845,7 @@ def main():
                     max_value=datetime.now()
                 )
 
-        elif analysis_mode == "📈 Compare Months":
+        elif analysis_mode == "Compare Months":
             col_m1, col_m2 = st.columns(2)
             with col_m1:
                 st.markdown("**Month 1**")
@@ -894,11 +913,11 @@ def main():
 
                 with st.spinner(f"Fetching PR data from {len(valid_repos)} repositories..."):
                     for repo_url, owner, repo in valid_repos:
-                        if analysis_mode == "📊 Single Month":
+                        if analysis_mode == "Single Month":
                             prs = fetch_prs_for_month(repo_url, selected_year, selected_month)
                             all_prs.extend(prs)
 
-                        elif analysis_mode == "📅 Date Range":
+                        elif analysis_mode == "Date Range":
                             if start_date > end_date:
                                 st.error("Start date must be before or equal to end date")
                                 break
@@ -907,7 +926,7 @@ def main():
                             prs = fetch_prs_for_date_range(repo_url, start_datetime, end_datetime)
                             all_prs.extend(prs)
 
-                        elif analysis_mode == "📈 Compare Months":
+                        elif analysis_mode == "Compare Months":
                             # For compare mode in aggregate, we need to fetch both months from all repos
                             prs_month1 = fetch_prs_for_month(repo_url, selected_year, selected_month)
                             prs_month2 = fetch_prs_for_month(repo_url, compare_year, compare_month)
@@ -916,7 +935,7 @@ def main():
                             all_prs.extend([(pr, 'month2') for pr in prs_month2])
 
                 # Process aggregated results
-                if analysis_mode == "📊 Single Month":
+                if analysis_mode == "Single Month":
                     period_name = f"{month_names[selected_month - 1]} {selected_year}"
 
                     if not all_prs:
@@ -930,7 +949,7 @@ def main():
                     repo_names_list = [f"{owner}/{repo}" for _, owner, repo in valid_repos]
                     display_analysis_results(metrics, period_name, repo_names_list, aggregate_repos)
 
-                elif analysis_mode == "📅 Date Range":
+                elif analysis_mode == "Date Range":
                     period_name = f"{start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}"
 
                     if not all_prs:
@@ -944,7 +963,7 @@ def main():
                     repo_names_list = [f"{owner}/{repo}" for _, owner, repo in valid_repos]
                     display_analysis_results(metrics, period_name, repo_names_list, aggregate_repos)
 
-                elif analysis_mode == "📈 Compare Months":
+                elif analysis_mode == "Compare Months":
                     month1_name = f"{month_names[selected_month - 1]} {selected_year}"
                     month2_name = f"{month_names[compare_month - 1]} {compare_year}"
 
@@ -1000,7 +1019,7 @@ def main():
 
                 try:
                     with st.spinner(f"Fetching PR data for {owner}/{repo}..."):
-                        if analysis_mode == "📊 Single Month":
+                        if analysis_mode == "Single Month":
                             # Single month analysis
                             prs = fetch_prs_for_month(repo_url, selected_year, selected_month)
                             period_name = f"{month_names[selected_month - 1]} {selected_year}"
@@ -1013,7 +1032,7 @@ def main():
                                 metrics = analyze_prs(prs)
                                 display_analysis_results(metrics, period_name, [f"{owner}/{repo}"], False)
 
-                        elif analysis_mode == "📅 Date Range":
+                        elif analysis_mode == "Date Range":
                             # Date range analysis
                             if start_date > end_date:
                                 st.error("Start date must be before or equal to end date")
@@ -1032,7 +1051,7 @@ def main():
                                     metrics = analyze_prs(prs)
                                     display_analysis_results(metrics, period_name, [f"{owner}/{repo}"], False)
 
-                        elif analysis_mode == "📈 Compare Months":
+                        elif analysis_mode == "Compare Months":
                             # Comparison mode
                             month1_name = f"{month_names[selected_month - 1]} {selected_year}"
                             month2_name = f"{month_names[compare_month - 1]} {compare_year}"
