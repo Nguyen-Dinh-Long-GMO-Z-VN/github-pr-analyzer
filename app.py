@@ -33,42 +33,126 @@ def get_pr_data_for_df(prs):
 
 
 def display_metrics_cards(metrics):
-    """Display metric cards in a grid."""
-    # Row 1: Basic counts
+    """Display metric cards in a styled grid with visual hierarchy."""
+
+    # Section header
+    st.markdown("""
+        <h4 style="color: #1E40AF; margin: 1.5rem 0 1rem 0; font-weight: 600;">
+            Overview
+        </h4>
+    """, unsafe_allow_html=True)
+
+    # Row 1: Primary metrics - Total, Merged, Open, Closed
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        st.metric("Total PRs", metrics['total'])
+        st.metric(
+            label="📊 Total PRs",
+            value=f"{metrics['total']:,}",
+            help="Total number of pull requests"
+        )
     with col2:
-        st.metric("Merged", metrics['merged'])
+        merged_delta = metrics['merged'] - metrics['closed'] if metrics['closed'] > 0 else None
+        st.metric(
+            label="✅ Merged",
+            value=f"{metrics['merged']:,}",
+            delta=f"{metrics['merged'] / metrics['total'] * 100:.0f}%" if metrics['total'] > 0 else None,
+            delta_color="normal",
+            help="Successfully merged PRs"
+        )
     with col3:
-        st.metric("Open", metrics['open'])
+        st.metric(
+            label="🔓 Open",
+            value=f"{metrics['open']:,}",
+            help="Currently open PRs"
+        )
     with col4:
-        st.metric("Closed", metrics['closed'])
+        st.metric(
+            label="❌ Closed",
+            value=f"{metrics['closed']:,}",
+            help="Closed without merging"
+        )
 
-    # Row 2: AI stats
+    # Row 2: AI Contribution
+    st.markdown("""
+        <h4 style="color: #1E40AF; margin: 1.5rem 0 1rem 0; font-weight: 600;">
+            AI Contribution
+        </h4>
+    """, unsafe_allow_html=True)
+
     col5, col6, col7, col8 = st.columns(4)
     with col5:
-        st.metric("AI PRs", f"{metrics['ai_prs']} ({metrics['ai_contribution_pct']:.1f}%)")
+        st.metric(
+            label="🤖 AI PRs",
+            value=f"{metrics['ai_prs']:,}",
+            delta=f"{metrics['ai_contribution_pct']:.1f}% of total" if metrics['total'] > 0 else None,
+            help="PRs created by AI"
+        )
     with col6:
-        st.metric("Human PRs", metrics['human_prs'])
+        st.metric(
+            label="👤 Human PRs",
+            value=f"{metrics['human_prs']:,}",
+            delta=f"{100 - metrics['ai_contribution_pct']:.1f}% of total" if metrics['total'] > 0 else None,
+            help="PRs created by humans"
+        )
     with col7:
         ai_rate = metrics['ai_merge_rate']
         human_rate = metrics['human_merge_rate']
-        st.metric("AI Merge Rate", f"{ai_rate:.1f}%", delta=f"vs {human_rate:.1f}% human")
+        diff = ai_rate - human_rate
+        st.metric(
+            label="🎯 AI Merge Rate",
+            value=f"{ai_rate:.1f}%",
+            delta=f"{diff:+.1f}% vs human" if diff != 0 else None,
+            delta_color="normal" if diff >= 0 else "inverse",
+            help="Percentage of AI PRs that were merged"
+        )
     with col8:
-        st.metric("PR Velocity", f"{metrics['pr_velocity']:.1f}/day")
+        velocity = metrics['pr_velocity']
+        st.metric(
+            label="⚡ PR Velocity",
+            value=f"{velocity:.1f}/day",
+            delta="PRs per day" if velocity > 0 else None,
+            help="Average PRs created per day"
+        )
 
-    # Row 3: Merge time stats
+    # Row 3: Merge Time Stats
+    st.markdown("""
+        <h4 style="color: #1E40AF; margin: 1.5rem 0 1rem 0; font-weight: 600;">
+            Merge Time Analysis
+        </h4>
+    """, unsafe_allow_html=True)
+
     col9, col10, col11 = st.columns(3)
     avg_time = metrics['avg_merge_time_hours']
+    ai_time = metrics['ai_avg_merge_time_hours']
+    human_time = metrics['human_avg_merge_time_hours']
+
     with col9:
-        st.metric("Avg Merge Time", f"{avg_time:.1f}h" if avg_time > 0 else "N/A")
+        display_time = f"{avg_time:.1f}h" if avg_time > 0 else "N/A"
+        st.metric(
+            label="⏱️ Overall Avg",
+            value=display_time,
+            help="Average time from creation to merge (all PRs)"
+        )
     with col10:
-        ai_time = metrics['ai_avg_merge_time_hours']
-        st.metric("AI Avg Merge Time", f"{ai_time:.1f}h" if ai_time > 0 else "N/A")
+        ai_display = f"{ai_time:.1f}h" if ai_time > 0 else "N/A"
+        ai_diff = ai_time - avg_time if ai_time > 0 and avg_time > 0 else 0
+        st.metric(
+            label="🤖 AI Avg",
+            value=ai_display,
+            delta=f"{ai_diff:+.1f}h vs overall" if ai_diff != 0 else None,
+            delta_color="inverse" if ai_diff > 0 else "normal",
+            help="Average merge time for AI PRs"
+        )
     with col11:
-        human_time = metrics['human_avg_merge_time_hours']
-        st.metric("Human Avg Merge Time", f"{human_time:.1f}h" if human_time > 0 else "N/A")
+        human_display = f"{human_time:.1f}h" if human_time > 0 else "N/A"
+        human_diff = human_time - avg_time if human_time > 0 and avg_time > 0 else 0
+        st.metric(
+            label="👤 Human Avg",
+            value=human_display,
+            delta=f"{human_diff:+.1f}h vs overall" if human_diff != 0 else None,
+            delta_color="inverse" if human_diff > 0 else "normal",
+            help="Average merge time for human PRs"
+        )
 
 
 def display_timeline_chart(prs_by_date):
@@ -156,12 +240,16 @@ def get_contributors_data_for_df(contributors_stats):
 
 
 def display_contributor_statistics(prs, contributors_stats=None, start_date=None, end_date=None):
-    """Display contributor statistics table."""
+    """Display contributor statistics table with enhanced styling."""
     if not prs:
         st.info("No PRs found for contributor analysis")
         return
 
-    st.subheader("Contributor Statistics")
+    st.markdown("""
+        <h3 style="color: #1E40AF; margin: 2rem 0 1rem 0; font-weight: 700;">
+            👥 Contributor Statistics
+        </h3>
+    """, unsafe_allow_html=True)
 
     # Calculate contributor stats if not provided
     if contributors_stats is None:
@@ -182,23 +270,122 @@ def display_contributor_statistics(prs, contributors_stats=None, start_date=None
     data = get_contributors_data_for_df(contributors_stats)
     df = pd.DataFrame(data)
 
-    # Display table
-    st.dataframe(df, use_container_width=True, hide_index=True)
+    # Column configuration for better display
+    column_config = {
+        "Username": st.column_config.TextColumn(
+            "Username",
+            help="Contributor's GitHub username",
+            width="medium"
+        ),
+        "Total PRs": st.column_config.NumberColumn(
+            "Total PRs",
+            help="Total pull requests submitted",
+            format="%d",
+            width="small"
+        ),
+        "Merged": st.column_config.NumberColumn(
+            "Merged",
+            help="Successfully merged PRs",
+            format="%d",
+            width="small"
+        ),
+        "Open": st.column_config.NumberColumn(
+            "Open",
+            help="Currently open PRs",
+            format="%d",
+            width="small"
+        ),
+        "Closed": st.column_config.NumberColumn(
+            "Closed",
+            help="Closed without merging",
+            format="%d",
+            width="small"
+        ),
+        "Merge Rate %": st.column_config.NumberColumn(
+            "Merge Rate",
+            help="Percentage of PRs that were merged",
+            format="%.1f%%",
+            width="small"
+        ),
+        "Avg Merge Time": st.column_config.TextColumn(
+            "Avg Merge Time",
+            help="Average time from creation to merge",
+            width="medium"
+        ),
+        "AI PRs": st.column_config.NumberColumn(
+            "AI PRs",
+            help="Number of AI-generated PRs",
+            format="%d",
+            width="small"
+        ),
+        "PRs/Week": st.column_config.NumberColumn(
+            "PRs/Week",
+            help="Average PRs per week",
+            format="%.2f",
+            width="small"
+        ),
+    }
+
+    # Display table with styling
+    st.dataframe(
+        df,
+        use_container_width=True,
+        hide_index=True,
+        column_config=column_config
+    )
+
+    # Summary stats
+    total_contributors = len(df)
+    total_ai_prs = df['AI PRs'].astype(int).sum()
+    avg_merge_rate = df['Merge Rate %'].astype(float).mean()
+
+    cols = st.columns(3)
+    with cols[0]:
+        st.metric("Total Contributors", total_contributors)
+    with cols[1]:
+        st.metric("Total AI PRs", total_ai_prs)
+    with cols[2]:
+        st.metric("Avg Merge Rate", f"{avg_merge_rate:.1f}%")
 
 
 def display_analysis_results(metrics, period_name):
-    """Display analysis results for a given time period."""
+    """Display analysis results for a given time period with enhanced styling."""
+
+    # Period info banner
+    st.markdown(f"""
+        <div style="
+            background: linear-gradient(135deg, #1E40AF 0%, #3B82F6 100%);
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            margin-bottom: 1.5rem;
+            font-weight: 600;
+            font-size: 1.1rem;
+        ">
+            📅 Analysis Period: {period_name}
+        </div>
+    """, unsafe_allow_html=True)
+
     # Display metrics
-    st.subheader("📊 Summary Metrics")
     display_metrics_cards(metrics)
 
     st.divider()
 
-    # Charts row 1
+    # Charts section
+    st.markdown("""
+        <h3 style="color: #1E40AF; margin: 2rem 0 1rem 0; font-weight: 700;">
+            📈 Visualizations
+        </h3>
+    """, unsafe_allow_html=True)
+
     col_chart1, col_chart2 = st.columns(2)
 
     with col_chart1:
-        st.markdown("**PR Status Distribution**")
+        st.markdown("""
+            <h4 style="color: #475569; margin-bottom: 0.5rem; font-weight: 600;">
+                PR Status Distribution
+            </h4>
+        """, unsafe_allow_html=True)
         status_data = pd.DataFrame({
             'Status': ['Merged', 'Open', 'Closed'],
             'Count': [metrics['merged'], metrics['open'], metrics['closed']]
@@ -206,7 +393,11 @@ def display_analysis_results(metrics, period_name):
         st.bar_chart(status_data.set_index('Status'))
 
     with col_chart2:
-        st.markdown("**AI vs Human PRs**")
+        st.markdown("""
+            <h4 style="color: #475569; margin-bottom: 0.5rem; font-weight: 600;">
+                AI vs Human PRs
+            </h4>
+        """, unsafe_allow_html=True)
         ai_data = pd.DataFrame({
             'Type': ['AI PRs', 'Human PRs'],
             'Count': [metrics['ai_prs'], metrics['human_prs']]
@@ -214,11 +405,19 @@ def display_analysis_results(metrics, period_name):
         st.bar_chart(ai_data.set_index('Type'))
 
     # Timeline
-    st.subheader("📈 PR Timeline")
+    st.markdown("""
+        <h4 style="color: #475569; margin: 1.5rem 0 0.5rem 0; font-weight: 600;">
+            PR Timeline
+        </h4>
+    """, unsafe_allow_html=True)
     display_timeline_chart(metrics['prs_by_date'])
 
-    # All contributors
-    st.subheader("👥 All Contributors")
+    # Contributors section
+    st.markdown("""
+        <h3 style="color: #1E40AF; margin: 2rem 0 1rem 0; font-weight: 700;">
+            👥 Contributors
+        </h3>
+    """, unsafe_allow_html=True)
 
     tab_overall, tab_ai, tab_human = st.tabs(["📊 Overall", "🤖 AI", "👤 Human"])
 
@@ -233,13 +432,21 @@ def display_analysis_results(metrics, period_name):
 
     # Label analysis
     if metrics['top_labels']:
-        st.subheader("🏷️ Label Analysis")
+        st.markdown("""
+            <h3 style="color: #1E40AF; margin: 2rem 0 1rem 0; font-weight: 700;">
+                🏷️ Label Analysis
+            </h3>
+        """, unsafe_allow_html=True)
         display_label_analysis(metrics['top_labels'])
 
     st.divider()
 
     # PR Details with tabs
-    st.subheader("📝 Pull Request Details")
+    st.markdown("""
+        <h3 style="color: #1E40AF; margin: 2rem 0 1rem 0; font-weight: 700;">
+            📝 Pull Request Details
+        </h3>
+    """, unsafe_allow_html=True)
     display_pr_tabs(metrics)
 
     # Contributor Statistics
@@ -326,13 +533,156 @@ def main():
         initial_sidebar_state="expanded"
     )
 
+    # Custom CSS for improved UI
+    st.markdown("""
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@300;400;500;600;700&display=swap');
+
+        /* Global font */
+        html, body, [class*="css"] {
+            font-family: 'Fira Sans', sans-serif;
+        }
+
+        /* Code elements */
+        code, pre, .stCodeBlock {
+            font-family: 'Fira Code', monospace !important;
+        }
+
+        /* Header styling */
+        h1 {
+            color: #1E3A8A !important;
+            font-weight: 700 !important;
+            letter-spacing: -0.02em;
+        }
+
+        h2, h3 {
+            color: #1E40AF !important;
+            font-weight: 600 !important;
+            margin-top: 1.5rem !important;
+        }
+
+        /* Metric cards styling */
+        [data-testid="stMetric"] {
+            background: linear-gradient(135deg, #F8FAFC 0%, #FFFFFF 100%);
+            border: 1px solid #E2E8F0;
+            border-radius: 12px;
+            padding: 1rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            transition: all 0.2s ease;
+        }
+
+        [data-testid="stMetric"]:hover {
+            box-shadow: 0 4px 12px rgba(30, 64, 175, 0.15);
+            border-color: #3B82F6;
+        }
+
+        [data-testid="stMetric"] > div:first-child {
+            font-size: 0.875rem;
+            color: #475569;
+            font-weight: 500;
+        }
+
+        [data-testid="stMetric"] > div:last-child {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: #1E3A8A;
+        }
+
+        /* Delta styling */
+        [data-testid="stMetricDelta"] {
+            color: #059669 !important;
+            font-weight: 600;
+        }
+
+        /* Sidebar styling */
+        section[data-testid="stSidebar"] {
+            background: linear-gradient(180deg, #F8FAFC 0%, #FFFFFF 100%);
+        }
+
+        section[data-testid="stSidebar"] .block-container {
+            padding-top: 2rem;
+        }
+
+        /* Button styling */
+        .stButton > button {
+            background: linear-gradient(135deg, #1E40AF 0%, #3B82F6 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 0.75rem 1.5rem;
+            font-weight: 600;
+            transition: all 0.2s ease;
+        }
+
+        .stButton > button:hover {
+            background: linear-gradient(135deg, #1E3A8A 0%, #2563EB 100%);
+            box-shadow: 0 4px 12px rgba(30, 64, 175, 0.3);
+            transform: translateY(-1px);
+        }
+
+        /* Checkbox styling */
+        .stCheckbox > label {
+            color: #334155;
+            font-weight: 500;
+        }
+
+        /* Tabs styling */
+        .stTabs [data-baseweb="tab-list"] {
+            gap: 0.5rem;
+        }
+
+        .stTabs [data-baseweb="tab"] {
+            background: #F1F5F9;
+            border-radius: 8px 8px 0 0;
+            padding: 0.75rem 1.25rem;
+            font-weight: 500;
+            color: #64748B;
+        }
+
+        .stTabs [aria-selected="true"] {
+            background: #1E40AF !important;
+            color: white !important;
+        }
+
+        /* DataFrame styling */
+        .stDataFrame {
+            border: 1px solid #E2E8F0;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        /* Info/Warning boxes */
+        .stAlert {
+            border-radius: 8px;
+        }
+
+        /* Divider styling */
+        hr {
+            margin: 2rem 0;
+            border-color: #E2E8F0;
+        }
+
+        /* Caption styling */
+        .stCaption {
+            color: #64748B;
+            font-size: 0.875rem;
+        }
+
+        /* Subheader styling */
+        .streamlit-expanderHeader {
+            font-weight: 600;
+            color: #1E40AF;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+
     # Check for GitHub token
     if not GITHUB_TOKEN:
         st.error("⚠️ GITHUB_TOKEN not found. Please set it in your .env file.")
         st.stop()
 
     # Header
-    st.title("🔧 GitHub PR Analyzer")
+    st.title("GitHub PR Analyzer")
     st.markdown("Analyze Pull Requests for any GitHub repository by month")
 
     # Sidebar
