@@ -177,3 +177,60 @@ def analyze_comparison(prs_month1: List[PullRequest], prs_month2: List[PullReque
             'velocity_diff': metrics2['pr_velocity'] - metrics1['pr_velocity'],
         }
     }
+
+
+def analyze_contributors(prs: List[PullRequest]) -> Dict[str, Dict[str, Any]]:
+    """Calculate statistics for each contributor.
+
+    Returns dict mapping username to their stats.
+    """
+    from collections import defaultdict
+
+    stats = defaultdict(lambda: {
+        'total_prs': 0,
+        'merged': 0,
+        'open': 0,
+        'closed': 0,
+        'ai_prs': 0,
+        'merge_times': [],  # List of hours for calculating average
+    })
+
+    for pr in prs:
+        username = pr.user.login
+        stats[username]['total_prs'] += 1
+
+        # Count by state
+        if pr.merged_at:
+            stats[username]['merged'] += 1
+            merge_time = calculate_merge_time_hours(pr)
+            if merge_time > 0:
+                stats[username]['merge_times'].append(merge_time)
+        elif pr.state == 'open':
+            stats[username]['open'] += 1
+        else:
+            stats[username]['closed'] += 1
+
+        # Count AI PRs
+        if is_ai_pr(pr):
+            stats[username]['ai_prs'] += 1
+
+    # Calculate derived metrics
+    result = {}
+    for username, user_stats in stats.items():
+        total = user_stats['total_prs']
+        merged = user_stats['merged']
+
+        result[username] = {
+            'username': username,
+            'total_prs': total,
+            'merged': merged,
+            'open': user_stats['open'],
+            'closed': user_stats['closed'],
+            'merge_rate': (merged / total * 100) if total > 0 else 0.0,
+            'avg_merge_time_hours': sum(user_stats['merge_times']) / len(user_stats['merge_times']) if user_stats['merge_times'] else 0.0,
+            'ai_prs': user_stats['ai_prs'],
+            'prs_per_week': 0.0,  # Will be calculated by caller with date range
+            'comments_per_pr': None,  # Lazy loaded
+        }
+
+    return result
