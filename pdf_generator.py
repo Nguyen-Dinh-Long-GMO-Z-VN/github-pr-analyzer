@@ -1,16 +1,37 @@
 """PDF Report Generator for GitHub PR Analyzer."""
 
+import re
 from datetime import datetime
 from io import BytesIO
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch, mm
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.cidfonts import UnicodeCIDFont
 from reportlab.platypus import (
     SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
     PageBreak, Image, HRFlowable
 )
 from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
+
+# Register Japanese font
+pdfmetrics.registerFont(UnicodeCIDFont('HeiseiKakuGo-W5'))
+
+
+def contains_japanese(text):
+    """Check if text contains Japanese characters."""
+    if not text:
+        return False
+    # Japanese Unicode ranges
+    japanese_pattern = re.compile(
+        r'[\u3040-\u309F]'  # Hiragana
+        r'|[\u30A0-\u30FF]'  # Katakana
+        r'|[\u4E00-\u9FFF]'  # Kanji
+        r'|[\uFF00-\uFFEF]'  # Full-width chars
+        r'|[\u3000-\u303F]'  # Punctuation
+    )
+    return bool(japanese_pattern.search(text))
 
 
 # Helper function to detect AI PRs (copied from pr_analyzer to avoid circular import)
@@ -59,6 +80,13 @@ def generate_pdf_report(metrics, period_name, repo_names, aggregate_mode=False, 
     # Container for elements
     elements = []
     styles = getSampleStyleSheet()
+
+    # Helper function to get font based on text content
+    def get_font_name(text, is_bold=False):
+        """Return appropriate font name based on text content."""
+        if contains_japanese(text):
+            return 'HeiseiKakuGo-W5'
+        return 'Helvetica-Bold' if is_bold else 'Helvetica'
 
     # Custom styles
     title_style = ParagraphStyle(
@@ -369,8 +397,19 @@ def generate_pdf_report(metrics, period_name, repo_names, aggregate_mode=False, 
 
         pr_data = [['#', 'Title', 'Author', 'State', 'AI']]
         for pr in all_prs:
+            # Create a title style with Japanese font support if needed
+            title_font = get_font_name(pr.title)
+            title_style_jp = ParagraphStyle(
+                f'TableTitle_{id(pr)}',
+                parent=normal_style,
+                fontSize=8,
+                leading=10,
+                wordWrap='CJK',
+                alignment=TA_LEFT,
+                fontName=title_font
+            )
             # Use Paragraph for title to handle long text with proper wrapping
-            title_para = Paragraph(pr.title, title_style)
+            title_para = Paragraph(pr.title, title_style_jp)
             # Create clickable link for PR number
             pr_link = Paragraph(f'<a href="{pr.html_url}" color="blue">#{pr.number}</a>', link_style)
             pr_data.append([
