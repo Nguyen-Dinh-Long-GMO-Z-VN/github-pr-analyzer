@@ -569,8 +569,8 @@ def main():
             padding: 1rem;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
             transition: all 0.2s ease;
-            height: 120px !important;
-            min-height: 120px !important;
+            height: 150px !important;
+            min-height: 150px !important;
             display: flex;
             flex-direction: column;
             justify-content: center;
