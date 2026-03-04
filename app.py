@@ -16,22 +16,95 @@ GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token"
 def show_login_page():
     """Show GitHub OAuth login page."""
     st.markdown("""
-        <div style="
+    <style>
+        .login-wrapper {
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            min-height: 60vh;
+            min-height: 80vh;
+            padding: 2rem;
+        }
+        .login-card {
+            background: linear-gradient(135deg, #1E293B 0%, #0F1729 100%);
+            border: 1px solid #334155;
+            border-radius: 24px;
+            padding: 3rem 2.5rem;
+            max-width: 420px;
+            width: 100%;
             text-align: center;
-        ">
-            <h1 style="color: #1E3A8A; font-size: 2.5rem; margin-bottom: 0.5rem;">🔧 GitHub PR Analyzer</h1>
-            <p style="color: #64748B; font-size: 1.1rem; margin-bottom: 2rem;">
-                Analyze Pull Requests for any GitHub repository
-            </p>
+            box-shadow: 0 25px 50px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05);
+        }
+        .login-logo {
+            width: 64px;
+            height: 64px;
+            margin: 0 auto 1.5rem;
+            background: linear-gradient(135deg, #22C55E 0%, #16A34A 100%);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 8px 24px rgba(34,197,94,0.3);
+        }
+        .login-title {
+            color: #F8FAFC;
+            font-size: 1.75rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            letter-spacing: -0.02em;
+        }
+        .login-subtitle {
+            color: #94A3B8;
+            font-size: 0.95rem;
+            margin-bottom: 2rem;
+            line-height: 1.6;
+        }
+        .login-divider {
+            height: 1px;
+            background: linear-gradient(90deg, transparent, #334155, transparent);
+            margin: 1.5rem 0;
+        }
+        .login-footer {
+            color: #475569;
+            font-size: 0.8rem;
+            margin-top: 1.5rem;
+        }
+        /* Style the OAuth button */
+        .stButton > button {
+            background: #24292E !important;
+            color: #F8FAFC !important;
+            border: 1px solid #444D56 !important;
+            border-radius: 10px !important;
+            padding: 0.75rem 1.5rem !important;
+            font-weight: 600 !important;
+            font-size: 0.95rem !important;
+            width: 100% !important;
+            transition: all 0.2s ease !important;
+        }
+        .stButton > button:hover {
+            background: #2F363D !important;
+            border-color: #586069 !important;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;
+            transform: translateY(-1px) !important;
+        }
+    </style>
+    <div class="login-wrapper">
+        <div class="login-card">
+            <div class="login-logo">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="white">
+                    <path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0 1 12 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/>
+                </svg>
+            </div>
+            <div class="login-title">GitHub PR Analyzer</div>
+            <div class="login-subtitle">
+                Analyze pull requests, track contributors,<br>and measure your team's velocity.
+            </div>
+            <div class="login-divider"></div>
         </div>
+    </div>
     """, unsafe_allow_html=True)
 
-    col1, col2, col3 = st.columns([2, 1, 2])
+    col1, col2, col3 = st.columns([2, 1.5, 2])
     with col2:
         oauth2 = OAuth2Component(
             GITHUB_CLIENT_ID,
@@ -40,7 +113,7 @@ def show_login_page():
             GITHUB_TOKEN_URL,
         )
         result = oauth2.authorize_button(
-            "Login with GitHub",
+            "Continue with GitHub",
             redirect_uri=REDIRECT_URI,
             scope="repo",
             key="github_oauth",
@@ -48,6 +121,12 @@ def show_login_page():
         if result and "token" in result:
             st.session_state.github_token = result["token"]["access_token"]
             st.rerun()
+
+    st.markdown("""
+    <div style="text-align:center; color:#475569; font-size:0.78rem; margin-top:0.5rem;">
+        Your token is stored in session only — never saved to disk.
+    </div>
+    """, unsafe_allow_html=True)
 
 
 def get_pr_data_for_df(prs):
@@ -79,11 +158,7 @@ def display_metrics_cards(metrics):
     """Display metric cards in a styled grid with visual hierarchy."""
 
     # Section header
-    st.markdown("""
-        <h4 style="color: #1E40AF; margin: 1.5rem 0 1rem 0; font-weight: 600;">
-            Overview
-        </h4>
-    """, unsafe_allow_html=True)
+    st.markdown('<p style="color:#64748B; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.08em; font-weight:600; margin: 1.5rem 0 0.75rem 0;">Overview</p>', unsafe_allow_html=True)
 
     # Row 1: Primary metrics - Total, Merged, Open, Closed
     col1, col2, col3, col4 = st.columns(4)
@@ -116,11 +191,7 @@ def display_metrics_cards(metrics):
         )
 
     # Row 2: AI Contribution
-    st.markdown("""
-        <h4 style="color: #1E40AF; margin: 1.5rem 0 1rem 0; font-weight: 600;">
-            AI Contribution
-        </h4>
-    """, unsafe_allow_html=True)
+    st.markdown('<p style="color:#64748B; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.08em; font-weight:600; margin: 1.5rem 0 0.75rem 0;">AI Contribution</p>', unsafe_allow_html=True)
 
     col5, col6, col7, col8 = st.columns(4)
     with col5:
@@ -158,11 +229,7 @@ def display_metrics_cards(metrics):
         )
 
     # Row 3: Merge Time Stats
-    st.markdown("""
-        <h4 style="color: #1E40AF; margin: 1.5rem 0 1rem 0; font-weight: 600;">
-            Merge Time Analysis
-        </h4>
-    """, unsafe_allow_html=True)
+    st.markdown('<p style="color:#64748B; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.08em; font-weight:600; margin: 1.5rem 0 0.75rem 0;">Merge Time Analysis</p>', unsafe_allow_html=True)
 
     col9, col10, col11 = st.columns(3)
     avg_time = metrics['avg_merge_time_hours']
@@ -289,7 +356,7 @@ def display_contributor_statistics(prs, contributors_stats=None, start_date=None
         return
 
     st.markdown("""
-        <h3 style="color: #1E40AF; margin: 2rem 0 1rem 0; font-weight: 700;">
+        <h3 style="color: #22C55E; margin: 2rem 0 1rem 0; font-weight: 700;">
             👥 Contributor Statistics
         </h3>
     """, unsafe_allow_html=True)
@@ -412,15 +479,20 @@ def display_analysis_results(metrics, period_name, repo_names=None, aggregate_mo
     # Period info banner
     st.markdown(f"""
         <div style="
-            background: linear-gradient(135deg, #1E40AF 0%, #3B82F6 100%);
-            color: white;
-            padding: 1rem 1.5rem;
-            border-radius: 12px;
+            background: linear-gradient(135deg, #1E293B 0%, #0F1729 100%);
+            border: 1px solid #22C55E40;
+            border-left: 3px solid #22C55E;
+            color: #E2E8F0;
+            padding: 0.875rem 1.25rem;
+            border-radius: 10px;
             margin-bottom: 1.5rem;
-            font-weight: 600;
-            font-size: 1.1rem;
+            font-weight: 500;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
         ">
-            📅 Analysis Period: {period_name}
+            <span style="color:#22C55E;">&#9679;</span> Analysis Period: <strong style="color:#F8FAFC;">{period_name}</strong>
         </div>
     """, unsafe_allow_html=True)
 
@@ -444,7 +516,7 @@ def display_analysis_results(metrics, period_name, repo_names=None, aggregate_mo
 
     # Charts section
     st.markdown("""
-        <h3 style="color: #1E40AF; margin: 2rem 0 1rem 0; font-weight: 700;">
+        <h3 style="color: #22C55E; margin: 2rem 0 1rem 0; font-weight: 700;">
             📈 Visualizations
         </h3>
     """, unsafe_allow_html=True)
@@ -485,7 +557,7 @@ def display_analysis_results(metrics, period_name, repo_names=None, aggregate_mo
 
     # Contributors section
     st.markdown("""
-        <h3 style="color: #1E40AF; margin: 2rem 0 1rem 0; font-weight: 700;">
+        <h3 style="color: #22C55E; margin: 2rem 0 1rem 0; font-weight: 700;">
             👥 Contributors
         </h3>
     """, unsafe_allow_html=True)
@@ -504,7 +576,7 @@ def display_analysis_results(metrics, period_name, repo_names=None, aggregate_mo
     # Label analysis
     if metrics['top_labels']:
         st.markdown("""
-            <h3 style="color: #1E40AF; margin: 2rem 0 1rem 0; font-weight: 700;">
+            <h3 style="color: #22C55E; margin: 2rem 0 1rem 0; font-weight: 700;">
                 🏷️ Label Analysis
             </h3>
         """, unsafe_allow_html=True)
@@ -514,7 +586,7 @@ def display_analysis_results(metrics, period_name, repo_names=None, aggregate_mo
 
     # PR Details with tabs
     st.markdown("""
-        <h3 style="color: #1E40AF; margin: 2rem 0 1rem 0; font-weight: 700;">
+        <h3 style="color: #22C55E; margin: 2rem 0 1rem 0; font-weight: 700;">
             📝 Pull Request Details
         </h3>
     """, unsafe_allow_html=True)
@@ -638,203 +710,248 @@ def main():
         initial_sidebar_state="expanded"
     )
 
-    # Custom CSS for improved UI
+    # Custom CSS — dark theme design system
     st.markdown("""
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@300;400;500;600;700&display=swap');
 
-        /* Global font */
+        /* === GLOBAL === */
         html, body, [class*="css"] {
             font-family: 'Fira Sans', sans-serif;
         }
-
-        /* Code elements */
         code, pre, .stCodeBlock {
             font-family: 'Fira Code', monospace !important;
         }
-
-        /* Header styling */
-        h1 {
-            color: #1E3A8A !important;
-            font-weight: 700 !important;
-            letter-spacing: -0.02em;
+        .main .block-container {
+            padding: 1.5rem 2.5rem 3rem;
+            max-width: 1400px;
         }
 
+        /* === TYPOGRAPHY === */
+        h1 {
+            color: #F8FAFC !important;
+            font-weight: 700 !important;
+            letter-spacing: -0.02em;
+            font-size: 1.75rem !important;
+        }
         h2, h3 {
-            color: #1E40AF !important;
+            color: #E2E8F0 !important;
             font-weight: 600 !important;
             margin-top: 1.5rem !important;
         }
 
-        /* Metric cards styling - Fixed height */
+        /* === SIDEBAR === */
+        section[data-testid="stSidebar"] {
+            background: #0B1120 !important;
+            border-right: 1px solid #1E293B !important;
+        }
+        section[data-testid="stSidebar"] .block-container {
+            padding-top: 1.5rem;
+        }
+
+        /* === METRIC CARDS === */
         [data-testid="stMetric"] {
-            background: linear-gradient(135deg, #F8FAFC 0%, #FFFFFF 100%);
-            border: 1px solid #E2E8F0;
-            border-radius: 12px;
-            padding: 1rem;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            transition: all 0.2s ease;
-            height: 150px !important;
-            min-height: 150px !important;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
+            background: linear-gradient(145deg, #1E293B 0%, #131D2E 100%) !important;
+            border: 1px solid #334155 !important;
+            border-radius: 16px !important;
+            padding: 1.25rem !important;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.04) !important;
+            transition: all 0.2s ease !important;
+            height: 140px !important;
+            min-height: 140px !important;
+            cursor: default;
         }
-
         [data-testid="stMetric"]:hover {
-            box-shadow: 0 4px 12px rgba(30, 64, 175, 0.15);
-            border-color: #3B82F6;
+            border-color: #22C55E !important;
+            box-shadow: 0 8px 32px rgba(34,197,94,0.12), inset 0 1px 0 rgba(255,255,255,0.04) !important;
+            transform: translateY(-2px) !important;
         }
-
-        /* Metric label */
-        [data-testid="stMetric"] > div:first-child {
-            font-size: 0.875rem;
-            color: #475569;
-            font-weight: 500;
-            margin-bottom: 0.5rem;
+        [data-testid="stMetricLabel"] > div {
+            color: #94A3B8 !important;
+            font-size: 0.8rem !important;
+            font-weight: 500 !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.06em !important;
         }
-
-        /* Metric value */
-        [data-testid="stMetric"] > div:last-child {
-            font-size: 1.75rem;
-            font-weight: 700;
-            color: #1E3A8A;
+        [data-testid="stMetricValue"] > div {
+            color: #F8FAFC !important;
+            font-size: 1.9rem !important;
+            font-weight: 700 !important;
+            letter-spacing: -0.02em !important;
         }
-
-        /* Delta styling */
         [data-testid="stMetricDelta"] {
-            color: #059669 !important;
-            font-weight: 600;
-            font-size: 0.875rem;
+            font-weight: 600 !important;
+            font-size: 0.8rem !important;
         }
-
-        /* Ensure columns have equal height */
         [data-testid="column"] {
             display: flex;
             flex-direction: column;
         }
+        [data-testid="column"] > div { flex: 1; }
 
-        [data-testid="column"] > div {
-            flex: 1;
-        }
-
-        [data-testid="stMetric"] > div:first-child {
-            font-size: 0.875rem;
-            color: #475569;
-            font-weight: 500;
-        }
-
-        [data-testid="stMetric"] > div:last-child {
-            font-size: 1.75rem;
-            font-weight: 700;
-            color: #1E3A8A;
-        }
-
-        /* Delta styling */
-        [data-testid="stMetricDelta"] {
-            color: #059669 !important;
-            font-weight: 600;
-        }
-
-        /* Sidebar styling */
-        section[data-testid="stSidebar"] {
-            background: linear-gradient(180deg, #F8FAFC 0%, #FFFFFF 100%);
-        }
-
-        section[data-testid="stSidebar"] .block-container {
-            padding-top: 2rem;
-        }
-
-        /* Button styling - Primary (Blue) */
+        /* === PRIMARY BUTTON (Analyze) === */
         .stButton > button[kind="primary"],
         button[kind="primary"] {
-            background: linear-gradient(135deg, #1E40AF 0%, #3B82F6 100%) !important;
+            background: linear-gradient(135deg, #22C55E 0%, #16A34A 100%) !important;
             color: white !important;
             border: none !important;
-            border-radius: 8px !important;
+            border-radius: 10px !important;
             padding: 0.75rem 1.5rem !important;
             font-weight: 600 !important;
+            font-size: 0.95rem !important;
             transition: all 0.2s ease !important;
+            box-shadow: 0 4px 15px rgba(34,197,94,0.25) !important;
+            cursor: pointer !important;
         }
-
         .stButton > button[kind="primary"]:hover,
         button[kind="primary"]:hover {
-            background: linear-gradient(135deg, #1E3A8A 0%, #2563EB 100%) !important;
-            box-shadow: 0 4px 12px rgba(30, 64, 175, 0.3) !important;
+            background: linear-gradient(135deg, #16A34A 0%, #15803D 100%) !important;
+            box-shadow: 0 6px 20px rgba(34,197,94,0.4) !important;
+            transform: translateY(-1px) !important;
+        }
+        .stButton > button[kind="primary"]:active {
+            transform: translateY(0) !important;
+        }
+
+        /* === SECONDARY BUTTON (Logout) === */
+        .stButton > button[kind="secondary"] {
+            background: transparent !important;
+            color: #94A3B8 !important;
+            border: 1px solid #334155 !important;
+            border-radius: 8px !important;
+            font-weight: 500 !important;
+            transition: all 0.2s ease !important;
+            cursor: pointer !important;
+        }
+        .stButton > button[kind="secondary"]:hover {
+            background: #1E293B !important;
+            color: #F8FAFC !important;
+            border-color: #475569 !important;
+        }
+
+        /* === DOWNLOAD BUTTON === */
+        .stDownloadButton > button {
+            background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%) !important;
+            color: white !important;
+            border: none !important;
+            border-radius: 10px !important;
+            font-weight: 600 !important;
+            box-shadow: 0 4px 15px rgba(59,130,246,0.25) !important;
+            cursor: pointer !important;
+            transition: all 0.2s ease !important;
+        }
+        .stDownloadButton > button:hover {
+            box-shadow: 0 6px 20px rgba(59,130,246,0.4) !important;
             transform: translateY(-1px) !important;
         }
 
-        /* Secondary button styling */
-        .stButton > button[kind="secondary"] {
-            background: #F1F5F9;
-            color: #1E40AF;
-            border: 1px solid #E2E8F0;
-            border-radius: 8px;
-            padding: 0.75rem 1.5rem;
-            font-weight: 600;
-            transition: all 0.2s ease;
-        }
-
-        .stButton > button[kind="secondary"]:hover {
-            background: #E2E8F0;
-            border-color: #CBD5E1;
-        }
-
-        /* Checkbox styling */
-        .stCheckbox > label {
-            color: #334155;
-            font-weight: 500;
-        }
-
-        /* Tabs styling */
+        /* === TABS === */
         .stTabs [data-baseweb="tab-list"] {
-            gap: 0.5rem;
+            background: #1E293B !important;
+            border-radius: 12px !important;
+            padding: 4px !important;
+            gap: 2px !important;
+            border: 1px solid #334155 !important;
         }
-
         .stTabs [data-baseweb="tab"] {
-            background: #F1F5F9;
-            border-radius: 8px 8px 0 0;
-            padding: 0.75rem 1.25rem;
-            font-weight: 500;
-            color: #64748B;
+            background: transparent !important;
+            color: #94A3B8 !important;
+            border-radius: 8px !important;
+            padding: 0.5rem 1.25rem !important;
+            font-weight: 500 !important;
+            font-size: 0.9rem !important;
+            transition: all 0.15s ease !important;
         }
-
+        .stTabs [data-baseweb="tab"]:hover {
+            background: #263147 !important;
+            color: #CBD5E1 !important;
+        }
         .stTabs [aria-selected="true"] {
-            background: #1E40AF !important;
+            background: linear-gradient(135deg, #22C55E 0%, #16A34A 100%) !important;
             color: white !important;
+            box-shadow: 0 2px 8px rgba(34,197,94,0.35) !important;
+            font-weight: 600 !important;
         }
 
-        /* DataFrame styling */
+        /* === DATAFRAME === */
         .stDataFrame {
-            border: 1px solid #E2E8F0;
-            border-radius: 8px;
-            overflow: hidden;
+            border: 1px solid #334155 !important;
+            border-radius: 12px !important;
+            overflow: hidden !important;
+        }
+        .stDataFrame thead tr th {
+            background: #1E293B !important;
+            color: #94A3B8 !important;
+            font-size: 0.8rem !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.05em !important;
+            padding: 0.75rem 1rem !important;
         }
 
-        /* Info/Warning boxes */
-        .stAlert {
-            border-radius: 8px;
-        }
-
-        /* Divider styling */
-        hr {
-            margin: 2rem 0;
-            border-color: #E2E8F0;
-        }
-
-        /* Caption styling */
-        .stCaption {
-            color: #64748B;
-            font-size: 0.875rem;
-        }
-
-        /* Subheader styling */
+        /* === EXPANDER === */
         .streamlit-expanderHeader {
-            font-weight: 600;
-            color: #1E40AF;
+            background: #1E293B !important;
+            border: 1px solid #334155 !important;
+            border-radius: 10px !important;
+            color: #CBD5E1 !important;
+            font-weight: 600 !important;
+        }
+        .streamlit-expanderContent {
+            border: 1px solid #334155 !important;
+            border-top: none !important;
+        }
+
+        /* === INPUT / SELECT === */
+        .stTextInput > div > div > input,
+        .stTextArea > div > div > textarea {
+            background: #1E293B !important;
+            border: 1px solid #334155 !important;
+            border-radius: 8px !important;
+            color: #F8FAFC !important;
+            transition: border-color 0.15s ease !important;
+        }
+        .stTextInput > div > div > input:focus,
+        .stTextArea > div > div > textarea:focus {
+            border-color: #22C55E !important;
+            box-shadow: 0 0 0 3px rgba(34,197,94,0.15) !important;
+        }
+        .stTextInput > div > div > input::placeholder {
+            color: #475569 !important;
+        }
+
+        /* === ALERTS === */
+        .stAlert {
+            border-radius: 10px !important;
+            border: 1px solid #334155 !important;
+        }
+
+        /* === DIVIDER === */
+        hr {
+            margin: 2rem 0 !important;
+            border-color: #1E293B !important;
+        }
+
+        /* === CAPTION === */
+        .stCaption {
+            color: #64748B !important;
+            font-size: 0.85rem !important;
+        }
+
+        /* === RADIO === */
+        .stRadio > div {
+            gap: 0.5rem !important;
+        }
+
+        /* === MULTISELECT === */
+        [data-baseweb="tag"] {
+            background: #22C55E20 !important;
+            border: 1px solid #22C55E50 !important;
+            border-radius: 6px !important;
+            color: #22C55E !important;
         }
     </style>
     """, unsafe_allow_html=True)
+
 
     # === AUTH CHECK ===
     if GITHUB_CLIENT_ID:
@@ -851,8 +968,22 @@ def main():
         st.stop()
 
     # Header
-    st.title("GitHub PR Analyzer")
-    st.markdown("Analyze Pull Requests for any GitHub repository by month")
+    st.markdown("""
+        <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:0.25rem;">
+            <div style="
+                width:36px; height:36px; border-radius:10px;
+                background:linear-gradient(135deg,#22C55E,#16A34A);
+                display:flex; align-items:center; justify-content:center;
+                box-shadow:0 4px 12px rgba(34,197,94,0.3); flex-shrink:0;
+            ">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
+                    <path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0 1 12 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/>
+                </svg>
+            </div>
+            <h1 style="margin:0; color:#F8FAFC; font-size:1.5rem; font-weight:700; letter-spacing:-0.02em;">GitHub PR Analyzer</h1>
+        </div>
+        <p style="color:#64748B; font-size:0.875rem; margin:0 0 1.5rem 3rem;">Analyze pull requests, track contributors, and measure team velocity</p>
+    """, unsafe_allow_html=True)
 
     # Sidebar
     with st.sidebar:
@@ -870,19 +1001,7 @@ def main():
             st.divider()
 
         # Analysis mode with styled header
-        st.markdown("""
-            <h3 style="
-                color: #1E40AF;
-                font-weight: 700;
-                font-size: 1.1rem;
-                margin-bottom: 0.75rem;
-                display: flex;
-                align-items: center;
-                gap: 0.5rem;
-            ">
-                📊 Analysis Mode
-            </h3>
-        """, unsafe_allow_html=True)
+        st.markdown('<p style="color:#64748B; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.1em; font-weight:700; margin-bottom:0.5rem;">Analysis Mode</p>', unsafe_allow_html=True)
         analysis_mode = st.radio(
             label="Analysis Mode",
             options=["Single Month", "Date Range", "Compare Months"],
