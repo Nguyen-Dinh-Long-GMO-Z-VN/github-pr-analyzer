@@ -1023,13 +1023,12 @@ def main():
         except Exception:
             pass
 
-        # Logout — show whenever any session auth exists (OAuth or manual PAT)
-        if "github_token" in st.session_state or st.session_state.get("manual_github_token"):
-            if st.button("🚪 Logout", type="secondary", use_container_width=True):
-                st.session_state.pop("github_token", None)
-                st.session_state.pop("manual_github_token", None)
-                st.session_state.render_blocks = []
-                st.rerun()
+        # Logout — always show, clears session tokens and falls back to env or login page
+        if st.button("🚪 Logout", type="secondary", use_container_width=True):
+            st.session_state.pop("github_token", None)
+            st.session_state.pop("manual_github_token", None)
+            st.session_state.render_blocks = []
+            st.rerun()
 
         # Settings button
         if st.button("⚙️ Settings", use_container_width=True):
