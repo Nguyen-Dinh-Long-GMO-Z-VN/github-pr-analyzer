@@ -1023,10 +1023,10 @@ def main():
         except Exception:
             pass
 
-        # Logout — only when using OAuth token
-        if "github_token" in st.session_state:
+        # Logout — show whenever any session auth exists (OAuth or manual PAT)
+        if "github_token" in st.session_state or st.session_state.get("manual_github_token"):
             if st.button("🚪 Logout", type="secondary", use_container_width=True):
-                del st.session_state.github_token
+                st.session_state.pop("github_token", None)
                 st.session_state.pop("manual_github_token", None)
                 st.session_state.render_blocks = []
                 st.rerun()
