@@ -3,7 +3,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
 from streamlit_oauth import OAuth2Component
-from github import Github
+from github import Github, Auth
 from pr_fetcher import fetch_prs_for_month, fetch_prs_for_date_range, parse_repo_url, fetch_comments_for_prs
 from pr_analyzer import analyze_prs, analyze_comparison, is_ai_pr, analyze_contributors
 from pdf_generator import generate_pdf_report
@@ -104,7 +104,7 @@ def show_login_page():
     </div>
     """, unsafe_allow_html=True)
 
-    col1, col2, col3 = st.columns([2, 1.5, 2])
+    _, col2, _ = st.columns([1, 2, 1])
     with col2:
         oauth2 = OAuth2Component(
             GITHUB_CLIENT_ID,
@@ -117,6 +117,7 @@ def show_login_page():
             redirect_uri=REDIRECT_URI,
             scope="repo",
             key="github_oauth",
+            use_container_width=True,
         )
         if result and "token" in result:
             st.session_state.github_token = result["token"]["access_token"]
@@ -695,6 +696,32 @@ def display_comparison(comparison_data):
         )
 
 
+@st.dialog("⚙️ Settings")
+def show_settings_dialog():
+    st.markdown("**GitHub Personal Access Token (PAT)**")
+    st.caption(
+        "Nhập PAT để truy cập repo private hoặc org bị restrict OAuth. "
+        "Token này có độ ưu tiên cao nhất."
+    )
+    current = st.session_state.get("manual_github_token", "")
+    token = st.text_input(
+        "Token",
+        value=current,
+        type="password",
+        placeholder="ghp_xxxxxxxxxxxx",
+        label_visibility="collapsed",
+    )
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("💾 Save", type="primary", use_container_width=True):
+            st.session_state.manual_github_token = token.strip()
+            st.rerun()
+    with col2:
+        if st.button("🗑️ Clear", use_container_width=True):
+            st.session_state.manual_github_token = ""
+            st.rerun()
+
+
 def main():
     # Initialize session state for theme
     if 'dark_mode' not in st.session_state:
@@ -954,15 +981,17 @@ def main():
 
 
     # === AUTH CHECK ===
-    if GITHUB_CLIENT_ID:
-        # OAuth mode: require login
-        if "github_token" not in st.session_state:
-            show_login_page()
-            st.stop()
+    # Priority: OAuth token → manually entered PAT → env GITHUB_TOKEN
+    if "github_token" in st.session_state:
         github_token = st.session_state.github_token
+    elif st.session_state.get("manual_github_token"):
+        github_token = st.session_state.manual_github_token
     elif GITHUB_TOKEN:
-        # Fallback: use static token from .env
         github_token = GITHUB_TOKEN
+    elif GITHUB_CLIENT_ID:
+        # OAuth configured but not logged in yet → show login page
+        show_login_page()
+        st.stop()
     else:
         st.error("⚠️ No auth configured. Set GITHUB_CLIENT_ID (OAuth) or GITHUB_TOKEN in your .env file.")
         st.stop()
@@ -987,18 +1016,28 @@ def main():
 
     # Sidebar
     with st.sidebar:
-        # User info + logout (OAuth mode only)
-        if GITHUB_CLIENT_ID and "github_token" in st.session_state:
-            try:
-                gh_user = Github(github_token).get_user()
-                st.markdown(f"👤 **{gh_user.login}**")
-            except Exception:
-                pass
-            if st.button("Logout", type="secondary"):
+        # User info
+        try:
+            gh_user = Github(auth=Auth.Token(github_token)).get_user()
+            st.markdown(f"👤 **{gh_user.login}**")
+        except Exception:
+            pass
+
+        # Logout — only when using OAuth token
+        if "github_token" in st.session_state:
+            if st.button("🚪 Logout", type="secondary", use_container_width=True):
                 del st.session_state.github_token
+                st.session_state.pop("manual_github_token", None)
                 st.session_state.render_blocks = []
                 st.rerun()
-            st.divider()
+
+        # Settings button
+        if st.button("⚙️ Settings", use_container_width=True):
+            show_settings_dialog()
+        if st.session_state.get("manual_github_token"):
+            st.caption("🔑 Using custom PAT")
+
+        st.divider()
 
         # Analysis mode with styled header
         st.markdown('<p style="color:#64748B; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.1em; font-weight:700; margin-bottom:0.5rem;">Analysis Mode</p>', unsafe_allow_html=True)
