@@ -349,11 +349,11 @@ def display_contributor_statistics(prs, contributors_stats=None, start_date=None
         st.metric("Avg Merge Rate", f"{avg_merge_rate:.1f}%")
 
 
-def display_analysis_results(metrics, period_name, repo_names=None, aggregate_mode=False):
+def display_analysis_results(metrics, period_name, repo_names=None, aggregate_mode=False, skip_pdf=False):
     """Display analysis results for a given time period with enhanced styling."""
 
-    # Generate and store PDF in session state
-    if repo_names:
+    # Generate and store PDF in session state (skip on re-renders caused by search/filter)
+    if repo_names and not skip_pdf:
         try:
             pdf_buffer = generate_pdf_report(
                 metrics,
@@ -483,33 +483,65 @@ def display_analysis_results(metrics, period_name, repo_names=None, aggregate_mo
 
 
 def display_pr_tabs(metrics):
-    """Display PRs in tabs (All / AI / Human)."""
+    """Display PRs in tabs (All / AI / Human) with search and status filter."""
+    col_search, col_filter = st.columns([3, 1])
+    with col_search:
+        search = st.text_input(
+            "Search",
+            placeholder="🔍 Search by author or title...",
+            label_visibility="collapsed",
+            key="pr_search"
+        )
+    with col_filter:
+        status_filter = st.multiselect(
+            "Status",
+            options=["Open", "Merged", "Closed"],
+            placeholder="Filter by status",
+            label_visibility="collapsed",
+            key="pr_status_filter"
+        )
+
+    def apply_filters(pr_data):
+        df = pd.DataFrame(pr_data)
+        if search:
+            mask = (
+                df['Author'].str.contains(search, case=False, na=False) |
+                df['Title'].str.contains(search, case=False, na=False)
+            )
+            df = df[mask]
+        if status_filter:
+            df = df[df['State'].isin(status_filter)]
+        return df
+
     tab1, tab2, tab3 = st.tabs(["📋 All PRs", "🤖 AI PRs", "👤 Human PRs"])
 
     with tab1:
         if metrics['all_prs']:
-            pr_data = get_pr_data_for_df(metrics['all_prs'])
-            df = pd.DataFrame(pr_data)
-            st.dataframe(df, use_container_width=True, hide_index=True)
-
+            df = apply_filters(get_pr_data_for_df(metrics['all_prs']))
+            if df.empty:
+                st.info("No PRs match the search/filter criteria")
+            else:
+                st.dataframe(df, use_container_width=True, hide_index=True)
         else:
             st.info("No PRs found")
 
     with tab2:
         if metrics['ai_pr_list']:
-            pr_data = get_pr_data_for_df(metrics['ai_pr_list'])
-            df = pd.DataFrame(pr_data)
-            st.dataframe(df, use_container_width=True, hide_index=True)
-
+            df = apply_filters(get_pr_data_for_df(metrics['ai_pr_list']))
+            if df.empty:
+                st.info("No AI PRs match the search/filter criteria")
+            else:
+                st.dataframe(df, use_container_width=True, hide_index=True)
         else:
             st.info("No AI PRs found")
 
     with tab3:
         if metrics['human_pr_list']:
-            pr_data = get_pr_data_for_df(metrics['human_pr_list'])
-            df = pd.DataFrame(pr_data)
-            st.dataframe(df, use_container_width=True, hide_index=True)
-
+            df = apply_filters(get_pr_data_for_df(metrics['human_pr_list']))
+            if df.empty:
+                st.info("No Human PRs match the search/filter criteria")
+            else:
+                st.dataframe(df, use_container_width=True, hide_index=True)
         else:
             st.info("No Human PRs found")
 
@@ -553,6 +585,8 @@ def main():
     # Initialize session state for theme
     if 'dark_mode' not in st.session_state:
         st.session_state.dark_mode = False
+    if 'render_blocks' not in st.session_state:
+        st.session_state.render_blocks = []
 
     # Page config
     st.set_page_config(
@@ -835,8 +869,6 @@ def main():
         end_date = None
         compare_month = None
         compare_year = None
-        compare_start_date = None
-        compare_end_date = None
 
         if analysis_mode == "Single Month":
             selected_month = st.selectbox(
@@ -904,7 +936,7 @@ def main():
 
         analyze_button = st.button("🔍 Analyze", type="primary", use_container_width=True)
 
-    # Main content
+    # === DATA FETCHING — only runs when Analyze button is clicked ===
     if analyze_button:
         if not repo_urls:
             st.error("Please enter at least one repository URL")
@@ -926,21 +958,21 @@ def main():
                 st.write(f"- `{url}`: {error}")
             return
 
-        # Aggregate mode: collect PRs from all repos
+        blocks = []
+        st.session_state.last_pdf_buffer = None
+
         if aggregate_repos and len(valid_repos) > 1:
-            st.header(f"📁 Aggregated Analysis: {len(valid_repos)} Repositories")
             repo_names = [f"{owner}/{repo}" for _, owner, repo in valid_repos]
-            st.caption(f"Repositories: {', '.join(repo_names)}")
+            blocks.append({'type': 'header', 'text': f"📁 Aggregated Analysis: {len(valid_repos)} Repositories"})
+            blocks.append({'type': 'caption', 'text': f"Repositories: {', '.join(repo_names)}"})
 
             try:
                 all_prs = []
-
                 with st.spinner(f"Fetching PR data from {len(valid_repos)} repositories..."):
                     for repo_url, owner, repo in valid_repos:
                         if analysis_mode == "Single Month":
                             prs = fetch_prs_for_month(repo_url, selected_year, selected_month)
                             all_prs.extend(prs)
-
                         elif analysis_mode == "Date Range":
                             if start_date > end_date:
                                 st.error("Start date must be before or equal to end date")
@@ -949,179 +981,170 @@ def main():
                             end_datetime = datetime.combine(end_date, datetime.max.time())
                             prs = fetch_prs_for_date_range(repo_url, start_datetime, end_datetime)
                             all_prs.extend(prs)
-
                         elif analysis_mode == "Compare Months":
-                            # For compare mode in aggregate, we need to fetch both months from all repos
                             prs_month1 = fetch_prs_for_month(repo_url, selected_year, selected_month)
                             prs_month2 = fetch_prs_for_month(repo_url, compare_year, compare_month)
-                            # Store in all_prs with metadata for later separation
                             all_prs.extend([(pr, 'month1') for pr in prs_month1])
                             all_prs.extend([(pr, 'month2') for pr in prs_month2])
 
-                # Process aggregated results
                 if analysis_mode == "Single Month":
                     period_name = f"{month_names[selected_month - 1]} {selected_year}"
-
                     if not all_prs:
-                        st.warning(f"No PRs found for {period_name} across all repositories")
-                        return
-
-                    st.info(f"Analyzing **{len(all_prs)} PRs** from {len(valid_repos)} repositories for {period_name}")
-
-                    # Analyze and display
-                    metrics = analyze_prs(all_prs)
-                    repo_names_list = [f"{owner}/{repo}" for _, owner, repo in valid_repos]
-                    display_analysis_results(metrics, period_name, repo_names_list, aggregate_repos)
+                        blocks.append({'type': 'warning', 'text': f"No PRs found for {period_name} across all repositories"})
+                    else:
+                        blocks.append({'type': 'info', 'text': f"Analyzing **{len(all_prs)} PRs** from {len(valid_repos)} repositories for {period_name}"})
+                        metrics = analyze_prs(all_prs)
+                        repo_names_list = [f"{owner}/{repo}" for _, owner, repo in valid_repos]
+                        # Generate PDF once at fetch time
+                        try:
+                            pdf_buffer = generate_pdf_report(metrics, period_name, repo_names_list, aggregate_repos, metrics.get('contributors'))
+                            st.session_state.last_pdf_buffer = pdf_buffer
+                            st.session_state.last_pdf_filename = f"pr-analysis-{period_name.replace(' ', '-').lower()}-{datetime.now().strftime('%Y%m%d')}.pdf"
+                        except Exception as e:
+                            st.error(f"Error generating PDF: {e}")
+                        blocks.append({'type': 'analysis', 'metrics': metrics, 'period_name': period_name, 'repo_names': repo_names_list, 'aggregate_mode': aggregate_repos})
 
                 elif analysis_mode == "Date Range":
                     period_name = f"{start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}"
-
                     if not all_prs:
-                        st.warning(f"No PRs found for {period_name} across all repositories")
-                        return
-
-                    st.info(f"Analyzing **{len(all_prs)} PRs** from {len(valid_repos)} repositories for {period_name}")
-
-                    # Analyze and display
-                    metrics = analyze_prs(all_prs)
-                    repo_names_list = [f"{owner}/{repo}" for _, owner, repo in valid_repos]
-                    display_analysis_results(metrics, period_name, repo_names_list, aggregate_repos)
+                        blocks.append({'type': 'warning', 'text': f"No PRs found for {period_name} across all repositories"})
+                    else:
+                        blocks.append({'type': 'info', 'text': f"Analyzing **{len(all_prs)} PRs** from {len(valid_repos)} repositories for {period_name}"})
+                        metrics = analyze_prs(all_prs)
+                        repo_names_list = [f"{owner}/{repo}" for _, owner, repo in valid_repos]
+                        try:
+                            pdf_buffer = generate_pdf_report(metrics, period_name, repo_names_list, aggregate_repos, metrics.get('contributors'))
+                            st.session_state.last_pdf_buffer = pdf_buffer
+                            st.session_state.last_pdf_filename = f"pr-analysis-{period_name.replace(' ', '-').lower()}-{datetime.now().strftime('%Y%m%d')}.pdf"
+                        except Exception as e:
+                            st.error(f"Error generating PDF: {e}")
+                        blocks.append({'type': 'analysis', 'metrics': metrics, 'period_name': period_name, 'repo_names': repo_names_list, 'aggregate_mode': aggregate_repos})
 
                 elif analysis_mode == "Compare Months":
                     month1_name = f"{month_names[selected_month - 1]} {selected_year}"
                     month2_name = f"{month_names[compare_month - 1]} {compare_year}"
-
-                    # Separate PRs by month
-                    prs_month1 = [pr for pr, month in all_prs if month == 'month1']
-                    prs_month2 = [pr for pr, month in all_prs if month == 'month2']
-
-                    if not prs_month1 and not prs_month2:
-                        st.warning(f"No PRs found for either {month1_name} or {month2_name}")
-                        return
-
-                    st.info(f"Analyzing **{len(prs_month1)} PRs** for {month1_name} and **{len(prs_month2)} PRs** for {month2_name}")
-
-                    # Compare
-                    comparison = analyze_comparison(
-                        prs_month1, prs_month2,
-                        month1_name, month2_name
-                    )
-
-                    display_comparison(comparison)
-
-                    # Show details for both months
-                    col_m1, col_m2 = st.columns(2)
-
-                    with col_m1:
-                        st.subheader(f"📅 {month1_name}")
-                        if prs_month1:
-                            metrics1 = comparison['month1']['metrics']
-                            st.metric("Total", metrics1['total'])
-                            st.metric("AI %", f"{metrics1['ai_contribution_pct']:.1f}%")
-                            st.metric("Velocity", f"{metrics1['pr_velocity']:.1f}/day")
-                        else:
-                            st.info("No data")
-
-                    with col_m2:
-                        st.subheader(f"📅 {month2_name}")
-                        if prs_month2:
-                            metrics2 = comparison['month2']['metrics']
-                            st.metric("Total", metrics2['total'])
-                            st.metric("AI %", f"{metrics2['ai_contribution_pct']:.1f}%")
-                            st.metric("Velocity", f"{metrics2['pr_velocity']:.1f}/day")
-                        else:
-                            st.info("No data")
+                    prs_m1 = [pr for pr, month in all_prs if month == 'month1']
+                    prs_m2 = [pr for pr, month in all_prs if month == 'month2']
+                    if not prs_m1 and not prs_m2:
+                        blocks.append({'type': 'warning', 'text': f"No PRs found for either {month1_name} or {month2_name}"})
+                    else:
+                        blocks.append({'type': 'info', 'text': f"Analyzing **{len(prs_m1)} PRs** for {month1_name} and **{len(prs_m2)} PRs** for {month2_name}"})
+                        comparison = analyze_comparison(prs_m1, prs_m2, month1_name, month2_name)
+                        blocks.append({'type': 'comparison', 'comparison': comparison, 'month1_name': month1_name, 'month2_name': month2_name, 'has_month1': bool(prs_m1), 'has_month2': bool(prs_m2)})
 
             except Exception as e:
-                st.error(f"Error analyzing repositories: {e}")
-                st.info("Make sure the repositories exist and your GITHUB_TOKEN has access to them.")
+                blocks.append({'type': 'error', 'text': f"Error analyzing repositories: {e}"})
+                blocks.append({'type': 'info', 'text': "Make sure the repositories exist and your GITHUB_TOKEN has access to them."})
 
         else:
-            # Individual repo mode: process each repo separately
+            # Individual repo mode
             for repo_url, owner, repo in valid_repos:
-                st.header(f"📁 {owner}/{repo}")
-
+                blocks.append({'type': 'header', 'text': f"📁 {owner}/{repo}"})
                 try:
                     with st.spinner(f"Fetching PR data for {owner}/{repo}..."):
                         if analysis_mode == "Single Month":
-                            # Single month analysis
                             prs = fetch_prs_for_month(repo_url, selected_year, selected_month)
                             period_name = f"{month_names[selected_month - 1]} {selected_year}"
-
                             if not prs:
-                                st.warning(f"No PRs found for {period_name}")
+                                blocks.append({'type': 'warning', 'text': f"No PRs found for {period_name}"})
                             else:
-                                st.info(f"Analyzing **{len(prs)} PRs** for {period_name}")
-                                # Analyze and display
+                                blocks.append({'type': 'info', 'text': f"Analyzing **{len(prs)} PRs** for {period_name}"})
                                 metrics = analyze_prs(prs)
-                                display_analysis_results(metrics, period_name, [f"{owner}/{repo}"], False)
+                                repo_names_list = [f"{owner}/{repo}"]
+                                try:
+                                    pdf_buffer = generate_pdf_report(metrics, period_name, repo_names_list, False, metrics.get('contributors'))
+                                    st.session_state.last_pdf_buffer = pdf_buffer
+                                    st.session_state.last_pdf_filename = f"pr-analysis-{period_name.replace(' ', '-').lower()}-{datetime.now().strftime('%Y%m%d')}.pdf"
+                                except Exception:
+                                    pass
+                                blocks.append({'type': 'analysis', 'metrics': metrics, 'period_name': period_name, 'repo_names': repo_names_list, 'aggregate_mode': False})
 
                         elif analysis_mode == "Date Range":
-                            # Date range analysis
                             if start_date > end_date:
-                                st.error("Start date must be before or equal to end date")
+                                blocks.append({'type': 'error', 'text': "Start date must be before or equal to end date"})
                             else:
                                 start_datetime = datetime.combine(start_date, datetime.min.time())
                                 end_datetime = datetime.combine(end_date, datetime.max.time())
-
                                 prs = fetch_prs_for_date_range(repo_url, start_datetime, end_datetime)
                                 period_name = f"{start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}"
-
                                 if not prs:
-                                    st.warning(f"No PRs found for {period_name}")
+                                    blocks.append({'type': 'warning', 'text': f"No PRs found for {period_name}"})
                                 else:
-                                    st.info(f"Analyzing **{len(prs)} PRs** for {period_name}")
-                                    # Analyze and display
+                                    blocks.append({'type': 'info', 'text': f"Analyzing **{len(prs)} PRs** for {period_name}"})
                                     metrics = analyze_prs(prs)
-                                    display_analysis_results(metrics, period_name, [f"{owner}/{repo}"], False)
+                                    repo_names_list = [f"{owner}/{repo}"]
+                                    try:
+                                        pdf_buffer = generate_pdf_report(metrics, period_name, repo_names_list, False, metrics.get('contributors'))
+                                        st.session_state.last_pdf_buffer = pdf_buffer
+                                        st.session_state.last_pdf_filename = f"pr-analysis-{period_name.replace(' ', '-').lower()}-{datetime.now().strftime('%Y%m%d')}.pdf"
+                                    except Exception:
+                                        pass
+                                    blocks.append({'type': 'analysis', 'metrics': metrics, 'period_name': period_name, 'repo_names': repo_names_list, 'aggregate_mode': False})
 
                         elif analysis_mode == "Compare Months":
-                            # Comparison mode
                             month1_name = f"{month_names[selected_month - 1]} {selected_year}"
                             month2_name = f"{month_names[compare_month - 1]} {compare_year}"
-
                             prs_month1 = fetch_prs_for_month(repo_url, selected_year, selected_month)
                             prs_month2 = fetch_prs_for_month(repo_url, compare_year, compare_month)
-
                             if not prs_month1 and not prs_month2:
-                                st.warning(f"No PRs found for either {month1_name} or {month2_name}")
+                                blocks.append({'type': 'warning', 'text': f"No PRs found for either {month1_name} or {month2_name}"})
                             else:
-                                # Compare
-                                comparison = analyze_comparison(
-                                    prs_month1, prs_month2,
-                                    month1_name, month2_name
-                                )
-
-                                display_comparison(comparison)
-
-                                # Show details for both months
-                                col_m1, col_m2 = st.columns(2)
-
-                                with col_m1:
-                                    st.subheader(f"📅 {month1_name}")
-                                    if prs_month1:
-                                        metrics1 = comparison['month1']['metrics']
-                                        st.metric("Total", metrics1['total'])
-                                        st.metric("AI %", f"{metrics1['ai_contribution_pct']:.1f}%")
-                                        st.metric("Velocity", f"{metrics1['pr_velocity']:.1f}/day")
-                                    else:
-                                        st.info("No data")
-
-                                with col_m2:
-                                    st.subheader(f"📅 {month2_name}")
-                                    if prs_month2:
-                                        metrics2 = comparison['month2']['metrics']
-                                        st.metric("Total", metrics2['total'])
-                                        st.metric("AI %", f"{metrics2['ai_contribution_pct']:.1f}%")
-                                        st.metric("Velocity", f"{metrics2['pr_velocity']:.1f}/day")
-                                    else:
-                                        st.info("No data")
-
-                    st.divider()
+                                comparison = analyze_comparison(prs_month1, prs_month2, month1_name, month2_name)
+                                blocks.append({'type': 'comparison', 'comparison': comparison, 'month1_name': month1_name, 'month2_name': month2_name, 'has_month1': bool(prs_month1), 'has_month2': bool(prs_month2)})
 
                 except Exception as e:
-                    st.error(f"Error analyzing {owner}/{repo}: {e}")
-                    st.info("Make sure the repository exists and your GITHUB_TOKEN has access to it.")
+                    blocks.append({'type': 'error', 'text': f"Error analyzing {owner}/{repo}: {e}"})
+                    blocks.append({'type': 'info', 'text': "Make sure the repository exists and your GITHUB_TOKEN has access to it."})
+
+                blocks.append({'type': 'divider'})
+
+        st.session_state.render_blocks = blocks
+
+    # === RENDERING — always runs on every re-run (button click or widget interaction) ===
+    for block in st.session_state.render_blocks:
+        btype = block['type']
+        if btype == 'header':
+            st.header(block['text'])
+        elif btype == 'caption':
+            st.caption(block['text'])
+        elif btype == 'info':
+            st.info(block['text'])
+        elif btype == 'warning':
+            st.warning(block['text'])
+        elif btype == 'error':
+            st.error(block['text'])
+        elif btype == 'analysis':
+            display_analysis_results(
+                block['metrics'],
+                block['period_name'],
+                block['repo_names'],
+                block['aggregate_mode'],
+                skip_pdf=True  # PDF was already generated during fetch
+            )
+        elif btype == 'comparison':
+            comp = block['comparison']
+            display_comparison(comp)
+            col_m1, col_m2 = st.columns(2)
+            with col_m1:
+                st.subheader(f"📅 {block['month1_name']}")
+                if block['has_month1']:
+                    m = comp['month1']['metrics']
+                    st.metric("Total", m['total'])
+                    st.metric("AI %", f"{m['ai_contribution_pct']:.1f}%")
+                    st.metric("Velocity", f"{m['pr_velocity']:.1f}/day")
+                else:
+                    st.info("No data")
+            with col_m2:
+                st.subheader(f"📅 {block['month2_name']}")
+                if block['has_month2']:
+                    m = comp['month2']['metrics']
+                    st.metric("Total", m['total'])
+                    st.metric("AI %", f"{m['ai_contribution_pct']:.1f}%")
+                    st.metric("Velocity", f"{m['pr_velocity']:.1f}/day")
+                else:
+                    st.info("No data")
+        elif btype == 'divider':
+            st.divider()
 
 
 if __name__ == "__main__":

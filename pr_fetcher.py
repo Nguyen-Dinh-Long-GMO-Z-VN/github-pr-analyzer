@@ -2,7 +2,7 @@
 import re
 from datetime import datetime
 from typing import List, Tuple, Dict
-from github import PullRequest
+from github.PullRequest import PullRequest
 from github_client import get_github_client
 
 

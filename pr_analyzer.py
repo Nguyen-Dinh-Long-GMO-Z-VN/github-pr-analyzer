@@ -2,7 +2,7 @@
 from typing import List, Dict, Any, Tuple
 from datetime import datetime
 from collections import Counter, defaultdict
-from github import PullRequest
+from github.PullRequest import PullRequest
 from config import (
     AI_DETECTION_ENABLED,
     AI_BRANCH_PREFIXES,
