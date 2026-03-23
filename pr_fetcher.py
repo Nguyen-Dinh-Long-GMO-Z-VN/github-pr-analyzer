@@ -31,6 +31,20 @@ def is_pr_in_month(pr: PullRequest, year: int, month: int) -> bool:
     return pr.created_at.year == year and pr.created_at.month == month
 
 
+EXCLUDED_SOURCE_BRANCH_PREFIXES = ('release',)
+EXCLUDED_SOURCE_BRANCHES = ('main',)
+
+
+def should_exclude_pr(pr: PullRequest) -> bool:
+    """Return True if PR should be excluded from statistics based on its source branch."""
+    branch = pr.head.ref.lower()
+    if branch in EXCLUDED_SOURCE_BRANCHES:
+        return True
+    if any(branch.startswith(prefix) for prefix in EXCLUDED_SOURCE_BRANCH_PREFIXES):
+        return True
+    return False
+
+
 def is_pr_in_date_range(pr: PullRequest, start_date: datetime, end_date: datetime) -> bool:
     """Check if PR was created within the specified date range (inclusive)."""
     pr_date = pr.created_at
@@ -54,7 +68,7 @@ def fetch_prs_for_month(repo_identifier: str, year: int, month: int, state: str 
 
     prs_in_month = [
         pr for pr in all_prs
-        if is_pr_in_month(pr, year, month)
+        if is_pr_in_month(pr, year, month) and not should_exclude_pr(pr)
     ]
 
     return prs_in_month
@@ -73,7 +87,7 @@ def fetch_prs_for_date_range(repo_identifier: str, start_date: datetime, end_dat
 
     prs_in_range = [
         pr for pr in all_prs
-        if is_pr_in_date_range(pr, start_date, end_date)
+        if is_pr_in_date_range(pr, start_date, end_date) and not should_exclude_pr(pr)
     ]
 
     return prs_in_range
